@@ -1,0 +1,26 @@
+# Usage local : `docker compose up --build`, puis http://127.0.0.1:3001
+#
+# Les secrets viennent d'un fichier `.env` à la racine (jamais commité) :
+#
+#   JWT_SECRET=<48 caractères aléatoires>
+#   COOKIE_SECURE=0        # HTTP local : le cookie Secure serait perdu
+#   TRUSTED_PROXY_HOPS=0   # pas de proxy devant
+services:
+  app:
+    build: .
+    image: vault-rush
+    ports:
+      - "127.0.0.1:3001:3001"
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_PATH: /data/vault.db
+      JWT_SECRET: ${JWT_SECRET:?definir JWT_SECRET dans .env (48 caracteres)}
+      COOKIE_SECURE: ${COOKIE_SECURE:-0}
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-0}
+    volumes:
+      - vault-data:/data
+    restart: unless-stopped
+
+volumes:
+  vault-data:

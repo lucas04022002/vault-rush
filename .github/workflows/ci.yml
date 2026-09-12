@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# Une seule exécution utile par branche.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, types, tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Installation
+        run: npm ci
+
+      - name: Gardes du dépôt
+        run: |
+          set -euo pipefail
+          # Aucun fichier d'environnement (hors exemple) ne doit être versionné.
+          if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example$'; then
+            echo "::error::un fichier .env est versionné"
+            exit 1
+          fi
+          # Aucune base SQLite versionnée.
+          if git ls-files | grep -E '\.db($|-shm$|-wal$|[0-9]*$)'; then
+            echo "::error::une base SQLite est versionnée"
+            exit 1
+          fi
+          echo "Gardes OK"
+
+      - name: Lint (Biome)
+        run: npm run lint
+
+      - name: Types (client + serveur)
+        run: npm run typecheck
+
+      - name: Tests (client + serveur)
+        run: npm test
+
+      - name: Build du client
+        run: npm run build
+
+  image:
+    name: Image Docker et scénario complet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construction de l'image
+        run: docker build -t vault-rush:ci .
+
+      - name: Démarrage du conteneur
+        run: |
+          set -euo pipefail
+          docker run -d --name vault-rush-ci -p 3001:3001 \
+            -e JWT_SECRET=ci-secret-de-quarante-caracteres-pile-ok \
+            -e COOKIE_SECURE=0 \
+            -e TRUSTED_PROXY_HOPS=0 \
+            vault-rush:ci
+          # Le secret ci-dessus fait 40 caractères et ne sert qu'à ce test.
+
+      - name: Scénario de bout en bout
+        run: bash .github/scripts/smoke.sh
+
+      - name: Journal du conteneur (en cas d'échec)
+        if: failure()
+        run: docker logs vault-rush-ci
+
+      - name: Arrêt
+        if: always()
+        run: docker rm -f vault-rush-ci

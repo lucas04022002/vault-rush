@@ -6,3 +6,6 @@ dist/
 server/data/
 audit/*.db*
 .DS_Store
+.superpowers/
+.claude/worktrees/
+.claude/settings.local.json

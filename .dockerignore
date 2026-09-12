@@ -1,0 +1,22 @@
+# Rien de tout cela n'entre dans l'image : ni secret, ni base, ni bruit.
+.git
+.github
+.claude
+.superpowers
+**/node_modules
+client/dist
+docs
+audit
+deploy
+**/*.md
+**/.env
+**/.env.*
+server/data
+**/*.db
+**/*.db-*
+.nvmrc
+.vscode
+.idea
+Dockerfile
+.dockerignore
+docker-compose.yml
