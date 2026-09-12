@@ -74,6 +74,29 @@ jobs:
       - name: Scénario de bout en bout
         run: bash .github/scripts/smoke.sh
 
+      - name: Ni root, ni base dans l'image
+        run: |
+          set -euo pipefail
+          user="$(docker inspect -f '{{.Config.User}}' vault-rush:ci)"
+          [ "$user" = "node" ] || { echo "::error::l'image déclare l'utilisateur « $user »"; exit 1; }
+          uid="$(docker exec vault-rush-ci id -u)"
+          [ "$uid" != "0" ] || { echo "::error::le conteneur tourne en root"; exit 1; }
+          # La base doit vivre sur le volume, jamais dans la couche image.
+          docker exec vault-rush-ci ls -l /data/vault.db
+          echo "utilisateur du conteneur : $user (uid $uid)"
+
+      - name: La sonde de santé passe au vert
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            etat="$(docker inspect -f '{{.State.Health.Status}}' vault-rush-ci)"
+            if [ "$etat" = "healthy" ]; then echo "HEALTHCHECK : $etat"; exit 0; fi
+            if [ "$etat" = "unhealthy" ]; then echo "::error::HEALTHCHECK unhealthy"; exit 1; fi
+            sleep 1
+          done
+          echo "::error::HEALTHCHECK toujours « starting » après 60 s"
+          exit 1
+
       - name: Journal du conteneur (en cas d'échec)
         if: failure()
         run: docker logs vault-rush-ci
