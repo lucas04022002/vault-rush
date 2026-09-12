@@ -1,89 +1,186 @@
 /**
- * Client API — toutes les requêtes vers le backend Vault Rush passent ici.
- * Le frontend ne décide jamais rien : il appelle l'API et affiche la réponse.
+ * Un seul point de passage vers l'API.
+ *
+ * - le cookie de session part avec chaque requête (`credentials: "include"`) ;
+ * - une réponse non-2xx devient une `ApiError` qui porte le CODE du serveur
+ *   (`insufficient_balance`, `step_mismatch`…) et son corps complet : les 409
+ *   de partie transportent l'état `round` du serveur, que le client adopte
+ *   plutôt que de deviner ;
+ * - aucun écran ne construit d'URL ni ne lit `res.ok` lui-même.
  */
 
-const BASE = "http://localhost:3001/api";
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly payload: Record<string, unknown>;
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(BASE + path, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json();
+  constructor(status: number, code: string, payload: Record<string, unknown> = {}) {
+    super(code);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+    this.payload = payload;
+  }
+}
+
+export type ApiInit = {
+  method?: "GET" | "POST";
+  /** Corps JSON ; sérialisé ici, jamais par l'appelant. */
+  body?: unknown;
+  signal?: AbortSignal;
+};
+
+export async function api<T>(path: string, init: ApiInit = {}): Promise<T> {
+  const hasBody = init.body !== undefined;
+
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, {
+      method: init.method ?? "GET",
+      credentials: "include",
+      headers: hasBody ? { "Content-Type": "application/json" } : undefined,
+      body: hasBody ? JSON.stringify(init.body) : undefined,
+      signal: init.signal,
+    });
+  } catch {
+    // Réseau coupé, serveur éteint : un code à nous, traduit comme les autres.
+    throw new ApiError(0, "network_error");
+  }
+
+  const text = await res.text();
+  let data: Record<string, unknown> = {};
+  try {
+    data = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+  } catch {
+    data = {};
+  }
+
   if (!res.ok) {
-    throw new Error((data as { error?: string }).error ?? "Erreur serveur");
+    const code = typeof data.error === "string" ? data.error : "internal_error";
+    throw new ApiError(res.status, code, data);
   }
   return data as T;
 }
 
-export type GameMode = "safe" | "risk" | "insane";
+/* ------------------------------ Types du serveur ------------------------------ */
 
-export type StartResponse = {
-  roundId: number;
-  balance: number;
-  currentFloor: number;
-  multiplier: number;
-  doors: number;
-  status: "playing";
+export type Outcome = "safe" | "danger";
+export type RoundStatus = "playing" | "lost" | "cashed_out";
+
+export type GameLabels = {
+  step: string;
+  option: string;
+  safe: string;
+  danger: string;
+  cashout: string;
 };
 
-export type PlayResponse =
-  | {
-      status: "playing";
-      result: "safe";
-      currentFloor: number;
-      multiplier: number;
-      potentialWin: number;
-    }
-  | { status: "lost"; result: "alarm"; payout: 0 };
-
-export type CashOutResponse = {
-  status: "cashed_out";
-  payout: number;
-  newBalance: number;
+export type GameMode = {
+  id: string;
+  label: string;
+  options: number;
+  safeOptions: number;
+  houseEdge: number;
+  chancePerStep: number;
+  multipliers: number[];
 };
 
-export type HistoryItem = {
+export type GameConfig = {
+  id: string;
+  name: string;
+  tagline: string;
+  steps: number;
+  labels: GameLabels;
+  maxPayoutCents: number;
+  minBetCents: number;
+  maxBetCents: number;
+  modes: GameMode[];
+};
+
+export type Round = {
   id: number;
-  betAmount: number;
-  mode: GameMode;
-  result: "playing" | "lost" | "cashed_out";
-  payout: number;
+  game: string;
+  mode: string;
+  status: RoundStatus;
+  step: number;
+  maxSteps: number;
+  betCents: number;
+  multiplier: number;
+  nextMultiplier: number | null;
+  cashoutCents: number;
+  payoutCents: number;
   createdAt: string;
+  finishedAt?: string;
 };
 
-export type AuthResult = {
-  userId: number;
-  username: string;
-  balance: number;
-};
+export type SessionUser = { id: number; username: string };
+export type Account = { user: SessionUser; balanceCents: number };
 
-export const api = {
-  login: (username: string) =>
-    request<AuthResult>("POST", "/auth/login", { username }),
-
-  getBalance: (userId: number) =>
-    request<{ balance: number }>("GET", `/wallet/balance/${userId}`),
-
-  start: (userId: number, betAmount: number, mode: GameMode) =>
-    request<StartResponse>("POST", "/game/start", { userId, betAmount, mode }),
-
-  play: (roundId: number, userId: number, selectedDoor: number) =>
-    request<PlayResponse>("POST", "/game/play", { roundId, userId, selectedDoor }),
-
-  cashout: (roundId: number, userId: number) =>
-    request<CashOutResponse>("POST", "/game/cashout", { roundId, userId }),
-
-  history: (userId: number) =>
-    request<HistoryItem[]>("GET", `/game/history/${userId}`),
-
-  leaderboard: () => request<LeaderboardEntry[]>("GET", "/leaderboard"),
+export type HistoryRound = {
+  id: number;
+  game: string;
+  mode: string;
+  betCents: number;
+  status: Exclude<RoundStatus, "playing">;
+  netCents: number;
+  step: number;
+  maxSteps: number;
+  multiplier: number;
+  createdAt: string;
 };
 
 export type LeaderboardEntry = {
   username: string;
-  balance: number;
-  bestPayout: number;
+  netCents: number;
+  rounds: number;
+  bestPayoutCents: number;
 };
+
+/* --------------------------------- Requêtes --------------------------------- */
+
+export const auth = {
+  me: () => api<Account>("/auth/me"),
+  register: (username: string, password: string) =>
+    api<Account>("/auth/register", { method: "POST", body: { username, password } }),
+  login: (username: string, password: string) =>
+    api<Account>("/auth/login", { method: "POST", body: { username, password } }),
+  setPassword: (username: string, newPassword: string) =>
+    api<Account>("/auth/set-password", { method: "POST", body: { username, newPassword } }),
+  logout: () => api<{ ok: true }>("/auth/logout", { method: "POST" }),
+};
+
+export const wallet = {
+  balance: () => api<{ balanceCents: number }>("/wallet"),
+  refill: () =>
+    api<{ balanceCents: number; refilledCents: number }>("/wallet/refill", { method: "POST" }),
+};
+
+export const games = {
+  list: () => api<{ games: GameConfig[] }>("/games"),
+  config: (game: string) => api<{ game: GameConfig }>(`/games/${game}/config`),
+  current: (game: string) => api<{ round: Round | null }>(`/games/${game}/current`),
+  start: (game: string, betCoins: string, mode: string) =>
+    api<{ round: Round }>(`/games/${game}/start`, { method: "POST", body: { betCoins, mode } }),
+  play: (game: string, roundId: number, step: number, option: number) =>
+    api<{ round: Round; revealed: Outcome[]; outcome: Outcome }>(`/games/${game}/play`, {
+      method: "POST",
+      body: { roundId, step, option },
+    }),
+  cashout: (game: string, roundId: number) =>
+    api<{ round: Round; balanceCents: number }>(`/games/${game}/cashout`, {
+      method: "POST",
+      body: { roundId },
+    }),
+};
+
+export const history = (game: string | undefined, limit: number) =>
+  api<{ rounds: HistoryRound[] }>(`/history?${listQuery(game, limit)}`);
+
+export const leaderboard = (game: string | undefined, limit: number) =>
+  api<{ entries: LeaderboardEntry[] }>(`/leaderboard?${listQuery(game, limit)}`);
+
+function listQuery(game: string | undefined, limit: number): string {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (game) params.set("game", game);
+  return params.toString();
+}

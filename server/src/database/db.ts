@@ -1,51 +1,45 @@
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 
 /**
- * Connexion SQLite unique (persistante sur disque).
- * Le fichier vit dans server/data/vault.db.
+ * Connexion SQLite. Aucune connexion n'est ouverte à l'import :
+ * `createApp()` (ou un test) appelle `openDb()` et garde la base dans son contexte.
  */
 
-const DB_PATH = process.env.DB_PATH ?? "data/vault.db";
-mkdirSync(dirname(DB_PATH), { recursive: true });
+export type Db = DatabaseSync;
 
-export const db = new DatabaseSync(DB_PATH);
+export const DEFAULT_DB_PATH = "data/vault.db";
+const IN_MEMORY = ":memory:";
 
-// Active les clés étrangères et un mode de journalisation robuste.
-db.exec("PRAGMA foreign_keys = ON");
-db.exec("PRAGMA journal_mode = WAL");
+export function openDb(path: string = process.env.DB_PATH ?? DEFAULT_DB_PATH): Db {
+  if (path !== IN_MEMORY) mkdirSync(dirname(resolve(path)), { recursive: true });
 
-// Schéma (créé une seule fois si absent).
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    balance REAL NOT NULL DEFAULT 1000,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
+  const db = new DatabaseSync(path);
+  db.exec("PRAGMA foreign_keys = ON");
+  // WAL n'a pas de sens (ni d'effet) sur une base en mémoire.
+  if (path !== IN_MEMORY) db.exec("PRAGMA journal_mode = WAL");
+  db.exec("PRAGMA busy_timeout = 5000");
+  return db;
+}
 
-  CREATE TABLE IF NOT EXISTS rounds (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    bet_amount REAL NOT NULL,
-    mode TEXT NOT NULL,
-    current_floor INTEGER NOT NULL DEFAULT 0,
-    multiplier REAL NOT NULL DEFAULT 1,
-    status TEXT NOT NULL DEFAULT 'playing',
-    payout REAL NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS transactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    round_id INTEGER,
-    type TEXT NOT NULL,
-    amount REAL NOT NULL,
-    balance_after REAL NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  );
-`);
+/**
+ * Exécute `fn` dans une transaction : tout est écrit, ou rien.
+ * `BEGIN IMMEDIATE` prend le verrou d'écriture tout de suite, ce qui sérialise
+ * deux opérations d'argent concurrentes sur le même joueur.
+ */
+export function withTransaction<T>(db: Db, fn: () => T): T {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const result = fn();
+    db.exec("COMMIT");
+    return result;
+  } catch (err) {
+    try {
+      db.exec("ROLLBACK");
+    } catch {
+      // La transaction était déjà retombée : l'erreur d'origine reste la bonne.
+    }
+    throw err;
+  }
+}

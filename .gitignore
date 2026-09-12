@@ -4,5 +4,11 @@ dist/
 .env.*
 !.env.example
 server/data/
+data/
 audit/*.db*
 .DS_Store
+.superpowers/
+.claude/worktrees/
+.claude/settings.local.json
+# Raccourci de démonstration local (il contient un JWT_SECRET de développement).
+demo.cmd

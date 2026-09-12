@@ -1,0 +1,26 @@
+{
+  "name": "vault-rush",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Vault Rush — arcade de jeux en coins fictifs (client React + serveur Express).",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
+    "start": "node --disable-warning=ExperimentalWarning server/src/app.ts",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "biome lint .",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.13"
+  }
+}
