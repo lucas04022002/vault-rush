@@ -9,7 +9,7 @@ import {
   calculateCashOut,
   MAX_PAYOUT,
   type GameMode,
-} from "./game.algorithm.ts";
+} from "../src/modules/game/game.algorithm.ts";
 
 test("buildMultipliers produit le bon house edge à chaque étage", () => {
   // Safe : p = 2/3, edge 2% -> RTP doit valoir 0.98 partout

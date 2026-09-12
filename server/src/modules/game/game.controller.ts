@@ -1,45 +1,50 @@
-import type { Request, Response } from "express";
-import * as gameService from "./game.service.ts";
-import { GameError } from "./game.service.ts";
-import { getBalance } from "../wallet/wallet.service.ts";
+import { z } from "zod";
+import type { AppContext } from "../../context.ts";
+import { requireUser } from "../../auth/session.ts";
+import { route } from "../../http/errors.ts";
+import { parseBody } from "../../http/validate.ts";
+import * as service from "./game.service.ts";
 
-/**
- * Contrôleurs : traduisent HTTP <-> service.
- * Toute GameError devient un 400 (faute du client), le reste un 500.
- */
+/** Contrôleurs de partie : session d'abord, corps validé ensuite, service enfin. */
 
-function handle(res: Response, fn: () => unknown) {
-  try {
-    res.json(fn());
-  } catch (err) {
-    if (err instanceof GameError) {
-      res.status(400).json({ error: err.message });
-    } else {
-      console.error(err);
-      res.status(500).json({ error: "Internal server error" });
-    }
-  }
-}
+const startSchema = z.object({
+  betCoins: z.union([z.string(), z.number()]),
+  mode: z.enum(["safe", "risk", "insane"]),
+});
 
-export function start(req: Request, res: Response) {
-  const { userId, betAmount, mode } = req.body ?? {};
-  handle(res, () => gameService.startRound(Number(userId), Number(betAmount), mode));
-}
+const playSchema = z.object({
+  roundId: z.number().int().positive(),
+  step: z.number().int().min(0),
+  option: z.number().int(),
+});
 
-export function play(req: Request, res: Response) {
-  const { roundId, userId, selectedDoor } = req.body ?? {};
-  handle(res, () => gameService.play(Number(roundId), Number(userId), Number(selectedDoor)));
-}
+const cashoutSchema = z.object({
+  roundId: z.number().int().positive(),
+});
 
-export function cashout(req: Request, res: Response) {
-  const { roundId, userId } = req.body ?? {};
-  handle(res, () => gameService.cashOut(Number(roundId), Number(userId)));
-}
+export function gameController(ctx: AppContext) {
+  return {
+    current: route((req, res) => {
+      const user = requireUser(req);
+      res.json({ round: service.currentRound(ctx, user) });
+    }),
 
-export function history(req: Request, res: Response) {
-  handle(res, () => gameService.history(Number(req.params.userId)));
-}
+    start: route((req, res) => {
+      const user = requireUser(req);
+      const input = parseBody(startSchema, req.body);
+      res.status(201).json({ round: service.startRound(ctx, user, input) });
+    }),
 
-export function balance(req: Request, res: Response) {
-  handle(res, () => ({ balance: getBalance(Number(req.params.userId)) }));
+    play: route((req, res) => {
+      const user = requireUser(req);
+      const input = parseBody(playSchema, req.body);
+      res.json(service.play(ctx, user, input));
+    }),
+
+    cashout: route((req, res) => {
+      const user = requireUser(req);
+      const { roundId } = parseBody(cashoutSchema, req.body);
+      res.json(service.cashout(ctx, user, roundId));
+    }),
+  };
 }

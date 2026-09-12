@@ -1,15 +1,20 @@
-import { db } from "./db.ts";
+import type { Db } from "./db.ts";
 import type { GameMode } from "../modules/game/game.algorithm.ts";
 
 /**
  * Couche d'accès aux données (SQLite).
  * Les services ne voient que ces fonctions, jamais le SQL directement.
+ * Tous les montants sont des entiers en centimes.
  */
 
 export type User = {
   id: number;
   username: string;
-  balance: number;
+  passwordHash: string | null;
+  balanceCents: number;
+  lastLoginAt: string | null;
+  lastRefillAt: string | null;
+  createdAt: string;
 };
 
 export type RoundStatus = "playing" | "lost" | "cashed_out";
@@ -17,144 +22,195 @@ export type RoundStatus = "playing" | "lost" | "cashed_out";
 export type GameRound = {
   id: number;
   userId: number;
-  betAmount: number;
+  game: string;
+  betCents: number;
   mode: GameMode;
-  currentFloor: number;
+  step: number;
   multiplier: number;
   status: RoundStatus;
-  payout: number;
+  payoutCents: number;
   createdAt: string;
 };
 
-export type TransactionType = "bet" | "win" | "loss" | "refund";
+export type TransactionType = "bet" | "win" | "loss" | "refill";
 
 export type Transaction = {
-  id: number;
   userId: number;
   roundId: number | null;
   type: TransactionType;
-  amount: number;
-  balanceAfter: number;
-  createdAt: string;
+  amountCents: number;
+  balanceAfterCents: number;
 };
 
 // Lignes brutes telles que stockées en base (snake_case).
+type UserRow = {
+  id: number;
+  username: string;
+  password_hash: string | null;
+  balance_cents: number;
+  last_login_at: string | null;
+  last_refill_at: string | null;
+  created_at: string;
+};
+
 type RoundRow = {
   id: number;
   user_id: number;
-  bet_amount: number;
+  game: string;
+  bet_cents: number;
   mode: string;
-  current_floor: number;
+  step: number;
   multiplier: number;
   status: string;
-  payout: number;
+  payout_cents: number;
   created_at: string;
 };
+
+function mapUser(r: UserRow): User {
+  return {
+    id: r.id,
+    username: r.username,
+    passwordHash: r.password_hash,
+    balanceCents: r.balance_cents,
+    lastLoginAt: r.last_login_at,
+    lastRefillAt: r.last_refill_at,
+    createdAt: r.created_at,
+  };
+}
 
 function mapRound(r: RoundRow): GameRound {
   return {
     id: r.id,
     userId: r.user_id,
-    betAmount: r.bet_amount,
+    game: r.game,
+    betCents: r.bet_cents,
     mode: r.mode as GameMode,
-    currentFloor: r.current_floor,
+    step: r.step,
     multiplier: r.multiplier,
     status: r.status as RoundStatus,
-    payout: r.payout,
+    payoutCents: r.payout_cents,
     createdAt: r.created_at,
   };
 }
 
-// --- Users ---
-export function getUser(id: number): User | undefined {
-  return db.prepare("SELECT id, username, balance FROM users WHERE id = ?").get(id) as
-    | User
+// --- Comptes ---
+export function getUser(db: Db, id: number): User | undefined {
+  const row = db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserRow | undefined;
+  return row ? mapUser(row) : undefined;
+}
+
+export function getUserByUsername(db: Db, username: string): User | undefined {
+  const row = db.prepare("SELECT * FROM users WHERE username = ?").get(username) as
+    | UserRow
     | undefined;
+  return row ? mapUser(row) : undefined;
 }
 
-export function getUserByUsername(username: string): User | undefined {
-  return db
-    .prepare("SELECT id, username, balance FROM users WHERE username = ?")
-    .get(username) as User | undefined;
-}
-
-export function createUser(username: string, balance = 1000): User {
+export function createUser(
+  db: Db,
+  username: string,
+  passwordHash: string | null,
+  balanceCents = 100_000,
+): User {
   const info = db
-    .prepare("INSERT INTO users (username, balance) VALUES (?, ?)")
-    .run(username, balance);
-  return { id: Number(info.lastInsertRowid), username, balance };
+    .prepare("INSERT INTO users (username, password_hash, balance_cents) VALUES (?, ?, ?)")
+    .run(username, passwordHash, balanceCents);
+  return getUser(db, Number(info.lastInsertRowid))!;
 }
 
-export function updateBalance(userId: number, newBalance: number): void {
-  db.prepare("UPDATE users SET balance = ? WHERE id = ?").run(
-    Number(newBalance.toFixed(2)),
-    userId,
-  );
+export function setPasswordHash(db: Db, userId: number, hash: string): void {
+  db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hash, userId);
 }
 
-// --- Rounds ---
-export function createRound(data: Omit<GameRound, "id" | "createdAt">): GameRound {
+export function touchLogin(db: Db, userId: number): void {
+  db.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(userId);
+}
+
+export function setBalance(db: Db, userId: number, balanceCents: number): void {
+  db.prepare("UPDATE users SET balance_cents = ? WHERE id = ?").run(balanceCents, userId);
+}
+
+export function markRefill(db: Db, userId: number): void {
+  db.prepare("UPDATE users SET last_refill_at = datetime('now') WHERE id = ?").run(userId);
+}
+
+/** Vrai si le joueur a déjà rechargé depuis moins de 24 h. */
+export function refilledWithin24h(db: Db, userId: number): boolean {
+  const row = db
+    .prepare(
+      "SELECT 1 AS recent FROM users WHERE id = ? AND last_refill_at > datetime('now', '-24 hours')",
+    )
+    .get(userId) as { recent: number } | undefined;
+  return row !== undefined;
+}
+
+// --- Parties ---
+export function createRound(
+  db: Db,
+  data: Pick<GameRound, "userId" | "game" | "betCents" | "mode">,
+): GameRound {
   const info = db
     .prepare(
-      `INSERT INTO rounds (user_id, bet_amount, mode, current_floor, multiplier, status, payout)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO rounds (user_id, game, bet_cents, mode, step, multiplier, status, payout_cents)
+       VALUES (?, ?, ?, ?, 0, 1, 'playing', 0)`,
     )
-    .run(
-      data.userId,
-      data.betAmount,
-      data.mode,
-      data.currentFloor,
-      data.multiplier,
-      data.status,
-      data.payout,
-    );
-  return getRound(Number(info.lastInsertRowid))!;
+    .run(data.userId, data.game, data.betCents, data.mode);
+  return getRound(db, Number(info.lastInsertRowid))!;
 }
 
-export function getRound(id: number): GameRound | undefined {
+export function getRound(db: Db, id: number): GameRound | undefined {
   const row = db.prepare("SELECT * FROM rounds WHERE id = ?").get(id) as RoundRow | undefined;
   return row ? mapRound(row) : undefined;
 }
 
-export function saveRound(round: GameRound): void {
+export function getActiveRound(db: Db, userId: number, game: string): GameRound | undefined {
+  const row = db
+    .prepare("SELECT * FROM rounds WHERE user_id = ? AND game = ? AND status = 'playing'")
+    .get(userId, game) as RoundRow | undefined;
+  return row ? mapRound(row) : undefined;
+}
+
+export function saveRound(db: Db, round: GameRound): void {
   db.prepare(
-    `UPDATE rounds SET current_floor = ?, multiplier = ?, status = ?, payout = ? WHERE id = ?`,
-  ).run(round.currentFloor, round.multiplier, round.status, round.payout, round.id);
+    `UPDATE rounds
+        SET step = ?, multiplier = ?, status = ?, payout_cents = ?, updated_at = datetime('now')
+      WHERE id = ?`,
+  ).run(round.step, round.multiplier, round.status, round.payoutCents, round.id);
 }
 
-export function getUserRounds(userId: number, limit = 20): GameRound[] {
-  const rows = db
-    .prepare("SELECT * FROM rounds WHERE user_id = ? ORDER BY id DESC LIMIT ?")
-    .all(userId, limit) as RoundRow[];
-  return rows.map(mapRound);
+// --- Journal ---
+export function addTransaction(db: Db, data: Transaction): void {
+  db.prepare(
+    `INSERT INTO transactions (user_id, round_id, type, amount_cents, balance_after_cents)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(data.userId, data.roundId, data.type, data.amountCents, data.balanceAfterCents);
 }
 
-// --- Leaderboard ---
+// --- Classement ---
 export type LeaderboardRow = {
   username: string;
-  balance: number;
-  bestPayout: number;
+  netProfitCents: number;
+  bestPayoutCents: number;
+  rounds: number;
 };
 
-export function getLeaderboard(limit = 10): LeaderboardRow[] {
+/**
+ * Classement par bénéfice net (gains encaissés − mises), jamais par solde :
+ * un joueur qui a beaucoup perdu ne doit pas monter grâce à une recharge.
+ * Le classement par jeu et la fenêtre de 30 jours arrivent avec le moteur commun.
+ */
+export function getLeaderboard(db: Db, limit = 10): LeaderboardRow[] {
   return db
     .prepare(
       `SELECT u.username AS username,
-              u.balance  AS balance,
-              COALESCE(MAX(r.payout), 0) AS bestPayout
-       FROM users u
-       LEFT JOIN rounds r ON r.user_id = u.id
-       GROUP BY u.id
-       ORDER BY u.balance DESC, bestPayout DESC
-       LIMIT ?`,
+              COALESCE(SUM(r.payout_cents), 0) - COALESCE(SUM(r.bet_cents), 0) AS netProfitCents,
+              COALESCE(MAX(r.payout_cents), 0) AS bestPayoutCents,
+              COUNT(r.id) AS rounds
+         FROM users u
+         LEFT JOIN rounds r ON r.user_id = u.id AND r.status IN ('lost', 'cashed_out')
+        GROUP BY u.id
+        ORDER BY netProfitCents DESC, bestPayoutCents DESC
+        LIMIT ?`,
     )
     .all(limit) as LeaderboardRow[];
-}
-
-// --- Transactions ---
-export function addTransaction(data: Omit<Transaction, "id" | "createdAt">): void {
-  db.prepare(
-    `INSERT INTO transactions (user_id, round_id, type, amount, balance_after)
-     VALUES (?, ?, ?, ?, ?)`,
-  ).run(data.userId, data.roundId, data.type, data.amount, data.balanceAfter);
 }

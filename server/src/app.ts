@@ -1,22 +1,85 @@
-import express from "express";
-import { router } from "./router.ts";
+import { existsSync } from "node:fs";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import cookieParser from "cookie-parser";
+import express, { type Express } from "express";
+import helmet from "helmet";
+import { createRateLimiter } from "./auth/rateLimit.ts";
+import { readSecret } from "./auth/jwt.ts";
+import { sessionMiddleware } from "./auth/session.ts";
+import type { AppContext, PlayFloorFn } from "./context.ts";
+import { openDb } from "./database/db.ts";
+import { runMigrations } from "./database/migrate.ts";
+import { errorHandler, notFoundHandler } from "./http/errors.ts";
+import { corsForClient, originGuard } from "./http/origin.ts";
+import { playFloor as realPlayFloor } from "./modules/game/game.algorithm.ts";
+import { createRouter } from "./router.ts";
 
-const app = express();
-app.use(express.json());
+/**
+ * Construction de l'application.
+ *
+ * `createApp()` ouvre sa propre base et applique les migrations : un test peut
+ * donc demander `:memory:` et repartir d'une base vierge à chaque fichier.
+ */
 
-// CORS simple pour permettre au frontend (autre port) d'appeler l'API.
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Headers", "Content-Type");
-  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  if (req.method === "OPTIONS") return res.sendStatus(204);
-  next();
-});
+export type CreateAppOptions = {
+  dbPath?: string;
+  /** Tirage d'un étage ; les tests l'injectent pour neutraliser le hasard. */
+  playFloor?: PlayFloorFn;
+};
 
-app.get("/health", (_req, res) => res.json({ ok: true }));
-app.use("/api", router);
+const LOGIN_ATTEMPTS = 10;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const CLIENT_DIST = fileURLToPath(new URL("../../client/dist/", import.meta.url));
 
-const PORT = Number(process.env.PORT) || 3001;
-app.listen(PORT, () => {
-  console.log(`Vault Rush API en écoute sur http://localhost:${PORT}`);
-});
+export function createApp(options: CreateAppOptions = {}): Express {
+  const isProduction = process.env.NODE_ENV === "production";
+  const ctx: AppContext = {
+    db: openDb(options.dbPath),
+    config: {
+      // Obligatoire : le serveur refuse de démarrer sans secret sérieux.
+      secret: readSecret(process.env.JWT_SECRET),
+      cookieSecure: process.env.COOKIE_SECURE === "1" || (isProduction && process.env.COOKIE_SECURE !== "0"),
+      clientUrl: process.env.CLIENT_URL || undefined,
+      isProduction,
+    },
+    loginLimiter: createRateLimiter({ max: LOGIN_ATTEMPTS, windowMs: LOGIN_WINDOW_MS }),
+    playFloor: options.playFloor ?? realPlayFloor,
+  };
+  runMigrations(ctx.db);
+
+  const app = express();
+  app.locals.ctx = ctx;
+  app.disable("x-powered-by");
+  // CSP désactivée tant que le client n'est pas refait (tâches 3 et 4).
+  app.use(helmet({ contentSecurityPolicy: false }));
+  if (ctx.config.clientUrl) app.use(corsForClient(ctx.config.clientUrl));
+  app.use(express.json({ limit: "16kb" }));
+  app.use(cookieParser());
+  app.use(originGuard(ctx.config.clientUrl));
+  app.use(sessionMiddleware(ctx.config));
+
+  app.use("/api", createRouter(ctx));
+  app.use("/api", notFoundHandler);
+
+  // En production, le serveur sert aussi le client construit.
+  if (isProduction && existsSync(CLIENT_DIST)) {
+    app.use(express.static(CLIENT_DIST));
+    app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile("index.html", { root: CLIENT_DIST }));
+  }
+
+  app.use(errorHandler);
+  return app;
+}
+
+/** Point d'entrée : `node src/app.ts`. */
+function main() {
+  const app = createApp();
+  const port = Number(process.env.PORT) || 3001;
+  app.listen(port, () => {
+    console.log(`Vault Rush API en écoute sur http://127.0.0.1:${port}`);
+  });
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
