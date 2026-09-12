@@ -9,7 +9,10 @@ export function Account() {
   const navigate = useNavigate();
   const { user, balanceCents, logout } = useSession();
   // La préférence est lue une fois au montage ; elle est coupée par défaut.
-  const [sound, setSound] = useState(() => (loadSoundPreference(), isSoundEnabled()));
+  const [sound, setSound] = useState(() => {
+    loadSoundPreference();
+    return isSoundEnabled();
+  });
   const [pending, setPending] = useState(false);
 
   async function seDéconnecter() {

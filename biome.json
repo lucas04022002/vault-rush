@@ -4,10 +4,10 @@
   "files": {
     "includes": [
       "**",
-      "!**/node_modules/**",
-      "!**/dist/**",
-      "!docs/**",
-      "!audit/**",
+      "!**/node_modules",
+      "!**/dist",
+      "!docs",
+      "!audit",
       "!**/package-lock.json"
     ]
   },
@@ -16,7 +16,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "a11y": {
         "useSemanticElements": "off",
         "noNoninteractiveTabindex": "off"

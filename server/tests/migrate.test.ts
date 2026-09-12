@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
 import { openDb, withTransaction } from "../src/database/db.ts";
 import { runMigrations } from "../src/database/migrate.ts";
 
