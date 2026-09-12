@@ -1,0 +1,68 @@
+/*
+ * Vault Rush — jetons de la direction B « Néon arcade » (spec §3, 12/09/2026).
+ *
+ * SEUL fichier du client autorisé à contenir une couleur littérale.
+ * Le test `tests/tokens.test.ts` échoue si un #hex, un rgb() ou un hsl()
+ * apparaît ailleurs dans `client/src`.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- Couleurs ---- */
+  --bg: #0F0A1E;          /* fond de page */
+  --bg-halo: #2A1650;     /* halo radial en haut de page */
+  --panel: #1A1133;       /* cartes, écran de jeu */
+  --panel2: #26193F;      /* surfaces secondaires, options, puces */
+  --line: #3A2B5C;        /* bordures (2 px) */
+
+  --mag: #FF3D8A;         /* accent chaud : sélection, ombre des titres */
+  --mag-ink: #2A0A18;     /* texte sur magenta (AA 5,4:1) */
+  --cyan: #35E5FF;        /* accent froid : marque, options, secondaire */
+  --yel: #FFD23F;         /* action principale, solde, étape courante */
+  --yel-ink: #2A1B00;     /* texte sur jaune (AA 11,6:1) */
+  --yel-shadow: #B58A00;  /* ombre dure du bouton principal */
+
+  --text: #FFF6FA;        /* texte */
+  --dim: #A99CC4;         /* texte secondaire, étiquettes */
+  --safe: #41F0A5;        /* étape réussie, bénéfice */
+  --safe-ink: #04261A;    /* texte sur vert (AA 11,0:1) */
+  --alarm: #FF4D4D;       /* alarme, perte, erreurs */
+  --alarm-ink: #2A0000;   /* texte sur rouge (AA 5,8:1) */
+
+  /* ---- Lueurs et ombres (les rgba() vivent ici, nulle part ailleurs) ---- */
+  --glow-mag: 0 0 14px rgba(255, 61, 138, 0.6);
+  --glow-mag-wide: 0 0 40px rgba(255, 61, 138, 0.25);
+  --glow-yel: 0 0 16px rgba(255, 210, 63, 0.6);
+  --glow-cyan: 0 0 14px rgba(53, 229, 255, 0.45);
+  --glow-cyan-inset: inset 0 0 18px rgba(53, 229, 255, 0.15);
+  --glow-safe: 0 0 14px rgba(65, 240, 165, 0.45);
+  --glow-alarm: 0 0 14px rgba(255, 77, 77, 0.55);
+  --shadow-hard: 0 6px 0 var(--yel-shadow);
+  --page-halo: radial-gradient(1200px 500px at 50% -10%, var(--bg-halo) 0%, var(--bg) 60%);
+
+  /* ---- Polices ---- */
+  --font-title: "Bungee", Impact, "Arial Black", system-ui, sans-serif;
+  --font-body: "Rubik", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, "Courier New", monospace;
+
+  /* ---- Rayons ---- */
+  --r-pill: 999px;
+  --r-card: 20px;
+  --r-option: 14px;
+  --r-sm: 8px;
+  --r-step: 999px 999px 6px 6px;
+
+  /* ---- Espacements ---- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  /* ---- Mouvement ---- */
+  --dur-fast: 120ms;
+  --dur: 220ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
