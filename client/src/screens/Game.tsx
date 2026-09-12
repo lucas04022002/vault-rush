@@ -13,6 +13,8 @@ import { useSession } from "../session.tsx";
 
 /** Solde sous lequel la recharge gratuite est proposée (10,00 coins). */
 const REFILL_THRESHOLD_CENTS = 1000;
+/** Montant de la recharge gratuite, côté serveur (`wallet.service.ts`). */
+const REFILL_AMOUNT_CENTS = 100_000;
 
 /** L'écran de jeu, le même pour tous les jeux d'échelle. */
 export function Game() {
@@ -149,7 +151,7 @@ function Refill({ onBalance }: { onBalance: (cents: number) => void }) {
   return (
     <div className="refill">
       <Button variant="secondary" pending={pending} onClick={() => void recharger()}>
-        Recharge gratuite (1 000 coins)
+        {`Recharge gratuite (${formatCoins(REFILL_AMOUNT_CENTS)})`}
       </Button>
       {message ? <Toast kind={failed ? "bad" : "good"}>{message}</Toast> : null}
     </div>

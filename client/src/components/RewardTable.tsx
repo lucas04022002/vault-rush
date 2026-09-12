@@ -29,7 +29,9 @@ export function RewardTable({ modes, betCents, maxPayoutCents }: RewardTableProp
   const columns = shownSteps(steps);
 
   return (
-    <div className="rewardtable">
+    // `data-dense` au-delà de 6 étapes : Laser Grid (8) tient alors dans la
+    // carte au lieu d'exiger un défilement horizontal pour ses 2 dernières.
+    <div className="rewardtable" data-dense={columns.length > 6 || undefined}>
       {/* Zone défilante : focalisable pour que le clavier puisse la parcourir. */}
       <div
         className="rewardtable__scroll"

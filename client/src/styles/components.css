@@ -387,6 +387,21 @@
   border-bottom: 1px solid var(--line);
 }
 
+/* Beaucoup d'étapes : on resserre plutôt que de faire défiler. */
+.rewardtable[data-dense] table {
+  font-size: 11px;
+}
+
+.rewardtable[data-dense] thead th {
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.rewardtable[data-dense] th,
+.rewardtable[data-dense] td {
+  padding: 8px 3px;
+}
+
 .rewardtable__gains {
   display: flex;
   flex-direction: column;

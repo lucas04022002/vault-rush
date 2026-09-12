@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, games, type GameConfig, type Outcome, type Round } from "../api.ts";
 import { errorMessage } from "../lib/messages.ts";
 import { useSession } from "../session.tsx";
+import { coinsOnly } from "./bets.ts";
 import { capitalize } from "./labels.ts";
 
 /**
@@ -72,11 +73,18 @@ export function useLadderGame(gameId: string): LadderGame {
 
   const { refreshBalance, setBalance } = session;
 
-  /** Adopte l'état de partie renvoyé par le serveur (réponse ou corps d'un 409). */
+  /**
+   * Adopte l'état de partie renvoyé par le serveur (réponse ou corps d'un 409).
+   *
+   * La mise à rejouer est TOUJOURS dérivée de la partie affichée : sinon
+   * « Rejouer » ne ferait rien après une reprise (rechargement de page ou 409
+   * `round_active`), où aucun `start` n'a eu lieu dans cet onglet.
+   */
   const adopt = useCallback((next: Round, options: { resumed?: boolean } = {}) => {
     setRound(next);
     setResumed(options.resumed ?? false);
     setState(next.status === "playing" ? "active" : "finished");
+    setLastBet({ coins: coinsOnly(next.betCents), mode: next.mode });
   }, []);
 
   useEffect(() => {
@@ -97,11 +105,7 @@ export function useLadderGame(gameId: string): LadderGame {
         ]);
         if (annulé || !alive.current) return;
         setConfig(game);
-        if (en_cours) {
-          setRound(en_cours);
-          setResumed(true);
-          setState(en_cours.status === "playing" ? "active" : "finished");
-        }
+        if (en_cours) adopt(en_cours, { resumed: true });
       } catch (err) {
         if (!annulé && alive.current) setError(errorMessage(err));
       } finally {
@@ -112,7 +116,7 @@ export function useLadderGame(gameId: string): LadderGame {
     return () => {
       annulé = true;
     };
-  }, [gameId]);
+  }, [adopt, gameId]);
 
   /** Enveloppe commune : un seul vol à la fois, erreurs traduites. */
   const run = useCallback(async (action: () => Promise<void>) => {
@@ -185,8 +189,12 @@ export function useLadderGame(gameId: string): LadderGame {
             (err.code === "step_mismatch" || err.code === "round_not_active") &&
             err.payload.round
           ) {
+            const adoptée = err.payload.round as Round;
             setRevealed(null);
-            adopt(err.payload.round as Round);
+            adopt(adoptée);
+            // La partie a pu se terminer ailleurs (second onglet, requête
+            // doublée) : le gain est déjà crédité, le bilan doit le montrer.
+            if (adoptée.status !== "playing") await refreshBalance();
           }
           setError(errorMessage(err));
         }
@@ -208,12 +216,14 @@ export function useLadderGame(gameId: string): LadderGame {
         } catch (err) {
           if (!alive.current) return;
           if (err instanceof ApiError && err.code === "round_not_active" && err.payload.round) {
-            adopt(err.payload.round as Round);
+            const adoptée = err.payload.round as Round;
+            adopt(adoptée);
+            if (adoptée.status !== "playing") await refreshBalance();
           }
           setError(errorMessage(err));
         }
       }),
-    [adopt, config, gameId, round, run, setBalance],
+    [adopt, config, gameId, refreshBalance, round, run, setBalance],
   );
 
   const replay = useCallback(async () => {

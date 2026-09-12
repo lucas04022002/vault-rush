@@ -28,7 +28,11 @@ export function PlayPanel({ config, round, revealed, pending, onPick, onCashout 
 
       <OptionGrid
         count={mode?.options ?? 0}
-        labels={{ option: capitalize(config.labels.option) }}
+        labels={{
+            option: capitalize(config.labels.option),
+            safe: config.labels.safe,
+            danger: config.labels.danger,
+          }}
         onPick={onPick}
         disabled={pending}
         revealed={revealed ?? undefined}

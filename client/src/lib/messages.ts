@@ -50,7 +50,6 @@ export function errorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     const known = MESSAGES[err.code];
     if (known) return known;
-    if (err.code === "invalid_body") return MESSAGES.invalid_body;
   }
   return MESSAGES.internal_error;
 }

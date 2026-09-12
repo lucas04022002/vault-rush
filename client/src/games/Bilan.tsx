@@ -38,7 +38,11 @@ export function Bilan({
       {revealed ? (
         <OptionGrid
           count={revealed.length}
-          labels={{ option: capitalize(config.labels.option) }}
+          labels={{
+            option: capitalize(config.labels.option),
+            safe: config.labels.safe,
+            danger: config.labels.danger,
+          }}
           onPick={() => {}}
           disabled
           revealed={revealed}

@@ -267,4 +267,59 @@ describe("useLadderGame", () => {
     expect(starts[1].body).toEqual({ betCoins: "25,00", mode: "risk" });
     expect(result.current.state).toBe("active");
   });
+
+  it("rejouer après une reprise relance la mise et le mode de la partie reprise", async () => {
+    // Aucun `start` n'a eu lieu dans cet onglet : la mise ne peut venir que
+    // de la partie reprise, sinon « Rejouer » serait un bouton mort.
+    const api = baseApi()
+      .on("GET /api/games/vault-rush/current", { json: { round: round(2) } })
+      .on("POST /api/games/vault-rush/cashout", {
+        json: {
+          round: round(2, { status: "cashed_out", payoutCents: 9600, cashoutCents: 9600 }),
+          balanceCents: 107_100,
+        },
+      })
+      .on("POST /api/games/vault-rush/start", { status: 201, json: { round: round(0) } });
+    const { result } = mount(api);
+    await waitFor(() => expect(result.current.state).toBe("active"));
+
+    await act(async () => {
+      await result.current.cashout();
+    });
+    expect(result.current.state).toBe("finished");
+
+    await act(async () => {
+      await result.current.replay();
+    });
+
+    const starts = api.callsTo("POST /api/games/vault-rush/start");
+    expect(starts.length).toBe(1);
+    expect(starts[0].body).toEqual({ betCoins: "25,00", mode: "risk" });
+    expect(result.current.state).toBe("active");
+  });
+
+  it("un 409 qui adopte une partie déjà terminée relit le solde", async () => {
+    // La partie a été encaissée ailleurs (autre onglet) : le gain est déjà
+    // crédité, le bilan doit montrer le vrai solde, pas celui d'avant.
+    const api = baseApi()
+      .on("GET /api/games/vault-rush/current", { json: { round: round(3) } })
+      .on("POST /api/games/vault-rush/play", {
+        status: 409,
+        json: {
+          error: "round_not_active",
+          round: round(3, { status: "cashed_out", payoutCents: 19_200, cashoutCents: 19_200 }),
+        },
+      })
+      .on("GET /api/wallet", { json: { balanceCents: 116_700 } });
+    const { result } = mount(api);
+    await waitFor(() => expect(result.current.state).toBe("active"));
+
+    await act(async () => {
+      await result.current.play(1);
+    });
+
+    expect(result.current.state).toBe("finished");
+    expect(result.current.round?.status).toBe("cashed_out");
+    expect(api.callsTo("GET /api/wallet").length).toBe(1);
+  });
 });
