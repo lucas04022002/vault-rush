@@ -110,7 +110,7 @@ docker compose up --build                # http://127.0.0.1:3001
 ```bash
 npm run lint        # Biome (lint seul : le formatage n'est pas imposé)
 npm run typecheck   # tsc sur le client et sur le serveur
-npm test            # 78 tests serveur (node:test + supertest) + 116 tests client (Vitest)
+npm test            # 85 tests serveur (node:test + supertest) + 119 tests client (Vitest)
 npm run build       # client -> client/dist
 ```
 
