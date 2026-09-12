@@ -110,20 +110,68 @@ Vérifications, dans cet ordre :
 
 ## Sauvegarder la base
 
-Tout tient dans un fichier. Depuis le VPS, en SSH :
+Tout tient dans un fichier — mais **un `cp` de `vault.db` seul n'est pas une
+sauvegarde**. La base tourne en mode WAL : les écritures récentes vivent dans
+`vault.db-wal` tant qu'elles n'ont pas été repliées. Mesuré sur la vraie base de
+Lucas : le `.db` copié sans son `-wal` contenait **0 compte et 0 partie** alors
+que l'original en avait 4 et 43.
+
+### La bonne procédure (conteneur en marche)
+
+L'image est une alpine sans `sqlite3` ; on passe donc par le `node:sqlite` déjà
+présent, et `VACUUM INTO` écrit une copie cohérente (WAL replié, base compactée) :
 
 ```bash
-# Nom du conteneur : le voir avec `docker ps` (Coolify le préfixe par le nom du service)
-docker exec <conteneur> sh -c 'cp /data/vault.db /data/vault-backup.db'
-docker cp <conteneur>:/data/vault-backup.db ./vault-$(date +%F).db
+# Nom du conteneur : `docker ps` (Coolify le préfixe par le nom du service)
+docker exec <conteneur> node --disable-warning=ExperimentalWarning -e "const{DatabaseSync}=require('node:sqlite');const d=new DatabaseSync('/data/vault.db');d.exec(\"VACUUM INTO '/data/sauvegarde.sqlite'\");d.close()"
+docker cp <conteneur>:/data/sauvegarde.sqlite ./vault-$(date +%F).sqlite
+docker exec <conteneur> rm /data/sauvegarde.sqlite
 ```
 
-La copie via `cp` pendant que le serveur tourne peut attraper une écriture en cours.
-Pour une sauvegarde parfaitement cohérente, arrêter le conteneur une seconde dans
-Coolify, copier, redémarrer — ou utiliser `sqlite3 /data/vault.db ".backup ..."` si
-`sqlite3` est installé sur l'hôte. Le volume Docker se trouve aussi directement sur le
-VPS (`docker volume inspect` donne son chemin) : `tar` sur ce dossier fait une
-sauvegarde hors ligne.
+Vérifier la copie avant de la ranger (elle doit contenir les comptes) :
+
+```bash
+node --disable-warning=ExperimentalWarning -e "const{DatabaseSync}=require('node:sqlite');const d=new DatabaseSync('./vault-$(date +%F).sqlite');console.log(d.prepare('SELECT COUNT(*) c FROM users').get())"
+```
+
+`VACUUM INTO` refuse d'écraser un fichier existant : supprimer la copie
+intermédiaire après chaque sauvegarde (dernière ligne), sinon la suivante échoue.
+
+Si `sqlite3` est disponible (hôte, ou `apk add --no-cache sqlite` dans le
+conteneur), `sqlite3 /data/vault.db ".backup /data/sauvegarde.sqlite"` fait la
+même chose.
+
+### Le repli (conteneur arrêté)
+
+Arrêter le conteneur dans Coolify, puis copier **le trio de fichiers**, jamais le
+`.db` tout seul :
+
+```bash
+docker cp <conteneur>:/data/vault.db      ./vault-$(date +%F).db
+docker cp <conteneur>:/data/vault.db-wal  ./vault-$(date +%F).db-wal   # s'il existe
+docker cp <conteneur>:/data/vault.db-shm  ./vault-$(date +%F).db-shm   # s'il existe
+```
+
+Le volume Docker est aussi directement sur le VPS (`docker volume inspect` donne
+son chemin) : un `tar` de ce dossier, conteneur arrêté, fait la même sauvegarde
+hors ligne.
+
+### Restauration
+
+Le serveur ouvre le fichier désigné par `DB_PATH` au démarrage : restaurer, c'est
+remettre ce fichier en place pendant que le conteneur est arrêté.
+
+```bash
+# Conteneur arrêté dans Coolify.
+docker cp ./vault-2026-09-12.sqlite <conteneur>:/data/vault.db
+# Aucun -wal ni -shm hérité de l'ancienne base ne doit rester à côté :
+docker exec <conteneur> sh -c 'rm -f /data/vault.db-wal /data/vault.db-shm'
+```
+
+Redémarrer : les migrations en attente s'appliquent à la base restaurée, et
+`GET /api/health` répond `{ ok: true, db: true }` quand elle est lisible.
+Vérifier ensuite qu'un compte connu se connecte avant de considérer la
+restauration comme réussie.
 
 ## Mettre à jour
 
