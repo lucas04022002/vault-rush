@@ -1,0 +1,298 @@
+<title>Vault Rush Arcade</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Public+Sans:wght@400;600&family=JetBrains+Mono:wght@500;700&family=Bungee&family=Rubik:wght@400;600;800&family=Space+Mono:wght@400;700&family=Anton&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  :root{
+    --page-bg:#EEECE6; --page-ink:#1B1A17; --page-grey:#6A675F; --page-line:#D6D2C8;
+  }
+  body{background:var(--page-bg);color:var(--page-ink);font-family:"Public Sans",system-ui,sans-serif;line-height:1.5}
+  *{box-sizing:border-box}
+  .intro{max-width:880px;margin:0 auto;padding:40px 24px 16px}
+  .intro h1{font-family:"Big Shoulders Display",Impact,sans-serif;font-weight:900;font-size:40px;line-height:1;margin:0 0 8px;text-wrap:balance}
+  .intro p{max-width:65ch;color:var(--page-grey);margin:0 0 8px}
+  .dir{padding:56px 24px 64px}
+  .dir-head{max-width:1080px;margin:0 auto 28px;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end}
+  .dir-head .kicker{font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.7}
+  .dir-head h2{margin:4px 0 6px;line-height:1;text-wrap:balance}
+  .dir-head p{margin:0;max-width:60ch;opacity:.85}
+  .tokens{display:flex;flex-direction:column;gap:8px;font-size:12px;min-width:260px}
+  .swatches{display:flex;gap:6px}
+  .swatches span{width:34px;height:34px;border-radius:4px;display:block;border:1px solid rgba(0,0,0,.25)}
+  .fonts{display:flex;flex-direction:column;gap:2px;opacity:.85}
+  .mock{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:380px 1fr;gap:24px;align-items:start}
+  @media (max-width:860px){.mock{grid-template-columns:1fr}.dir-head{grid-template-columns:1fr}}
+  .phone{border-radius:22px;padding:18px 16px 20px;display:flex;flex-direction:column;gap:14px;min-height:640px}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;cursor:default}
+  table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  td,th{padding:6px 4px;text-align:right}
+  td:first-child,th:first-child{text-align:left}
+  .steps{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+  .step{height:44px;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;line-height:1.1;font-variant-numeric:tabular-nums}
+  .doors{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .door{height:92px;border-radius:10px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:8px;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+  .btn{padding:14px 18px;border-radius:10px;font-weight:700;text-align:center;font-size:16px}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .tile{border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px;min-height:200px}
+  .tile .actions{display:flex;gap:10px;margin-top:auto}
+  .side{display:flex;flex-direction:column;gap:16px}
+  .note{font-size:13px;line-height:1.5;padding:14px 16px;border-radius:10px}
+  .wrap-choice{max-width:880px;margin:0 auto;padding:40px 24px 80px}
+  .wrap-choice h2{font-family:"Big Shoulders Display",Impact,sans-serif;font-weight:900;font-size:30px;margin:0 0 8px}
+  .wrap-choice ul{padding-left:18px;color:var(--page-grey)}
+
+  /* ---------- A : Chambre forte ---------- */
+  .a{--bg:#0C1210;--panel:#151E19;--panel2:#1E2A23;--brass:#C9A44C;--brass2:#E7C874;--ivory:#EFE7D2;--dim:#93A093;--line:#2A362E;--alarm:#E24C4C;--safe:#4FB286;
+     background:var(--bg);color:var(--ivory);font-family:"Public Sans",system-ui,sans-serif}
+  .a .dir-head h2{font-family:"Big Shoulders Display",Impact,sans-serif;font-weight:900;font-size:56px;letter-spacing:.01em;color:var(--brass2)}
+  .a .phone{background:var(--panel);border:1px solid var(--line);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+  .a .brand{font-family:"Big Shoulders Display",Impact,sans-serif;font-weight:900;font-size:26px;letter-spacing:.04em;color:var(--brass2)}
+  .a .bal{font-family:"JetBrains Mono",monospace;font-size:14px;color:var(--ivory);padding:6px 10px;border:1px solid var(--brass);border-radius:6px}
+  .a .label{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+  .a .chip{background:var(--panel2);color:var(--ivory);border:1px solid var(--line)}
+  .a .chip.on{background:var(--brass);color:#1A1608;border-color:var(--brass2)}
+  .a table th{color:var(--dim);font-weight:600;border-bottom:1px solid var(--line);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+  .a table td{font-family:"JetBrains Mono",monospace;border-bottom:1px solid var(--line)}
+  .a .step{background:var(--panel2);color:var(--dim);border:1px solid var(--line)}
+  .a .step.done{background:var(--safe);color:#08170F;border-color:var(--safe)}
+  .a .step.now{background:var(--brass);color:#1A1608;border-color:var(--brass2);box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--brass2)}
+  .a .door{background:linear-gradient(180deg,#25332B,#18221D);border:1px solid var(--line);color:var(--dim);position:relative}
+  .a .door::before{content:"";position:absolute;top:26px;width:22px;height:22px;border-radius:50%;border:3px solid var(--brass);box-shadow:inset 0 0 0 4px var(--panel2)}
+  .a .btn.primary{background:var(--brass);color:#1A1608}
+  .a .btn.quiet{background:transparent;color:var(--brass2);border:1px solid var(--brass)}
+  .a .tile{background:var(--panel);border:1px solid var(--line)}
+  .a .tile h3{font-family:"Big Shoulders Display",Impact,sans-serif;font-weight:900;font-size:34px;margin:0;color:var(--ivory);line-height:1}
+  .a .tile p{margin:0;color:var(--dim);font-size:14px}
+  .a .tag{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--brass2);letter-spacing:.1em}
+  .a .note{background:var(--panel2);color:var(--ivory);border-left:3px solid var(--brass)}
+  .a .money{font-family:"JetBrains Mono",monospace;font-weight:700}
+  .a .swatches span{border-color:rgba(255,255,255,.2)}
+
+  /* ---------- B : Néon arcade ---------- */
+  .b{--bg:#0F0A1E;--panel:#1A1133;--panel2:#26193F;--mag:#FF3D8A;--cyan:#35E5FF;--yel:#FFD23F;--text:#FFF6FA;--dim:#A99CC4;--line:#3A2B5C;--alarm:#FF4D4D;--safe:#41F0A5;
+     background:radial-gradient(1200px 500px at 50% -10%,#2A1650 0%,var(--bg) 60%);color:var(--text);font-family:"Rubik",system-ui,sans-serif}
+  .b .dir-head h2{font-family:"Bungee",Impact,sans-serif;font-size:44px;color:var(--yel);text-shadow:3px 3px 0 var(--mag)}
+  .b .phone{background:var(--panel);border:2px solid var(--line);box-shadow:0 0 0 4px var(--bg),0 0 40px rgba(255,61,138,.25)}
+  .b .brand{font-family:"Bungee",Impact,sans-serif;font-size:22px;color:var(--cyan);text-shadow:2px 2px 0 var(--mag)}
+  .b .bal{font-family:"Space Mono",monospace;font-weight:700;font-size:14px;color:var(--yel);padding:6px 10px;background:var(--panel2);border-radius:999px}
+  .b .label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:600}
+  .b .chip{background:var(--panel2);color:var(--text);border:2px solid var(--line);border-radius:999px}
+  .b .chip.on{background:var(--mag);color:#fff;border-color:var(--mag);box-shadow:0 0 14px rgba(255,61,138,.6)}
+  .b table th{color:var(--dim);font-weight:600;border-bottom:2px solid var(--line);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+  .b table td{font-family:"Space Mono",monospace;border-bottom:1px solid var(--line)}
+  .b .step{background:var(--panel2);color:var(--dim);border-radius:999px 999px 6px 6px}
+  .b .step.done{background:var(--safe);color:#04261A}
+  .b .step.now{background:var(--yel);color:#2A1B00;box-shadow:0 0 16px rgba(255,210,63,.6)}
+  .b .door{background:var(--panel2);border:2px solid var(--cyan);color:var(--cyan);border-radius:14px;box-shadow:inset 0 0 18px rgba(53,229,255,.15)}
+  .b .btn.primary{background:var(--yel);color:#2A1B00;border-radius:999px;box-shadow:0 6px 0 #B58A00}
+  .b .btn.quiet{background:transparent;color:var(--cyan);border:2px solid var(--cyan);border-radius:999px}
+  .b .tile{background:var(--panel);border:2px solid var(--line);border-radius:20px}
+  .b .tile h3{font-family:"Bungee",Impact,sans-serif;font-size:26px;margin:0;line-height:1.05}
+  .b .tile.vr h3{color:var(--yel)} .b .tile.lg h3{color:var(--cyan)}
+  .b .tile p{margin:0;color:var(--dim);font-size:14px}
+  .b .tag{font-family:"Space Mono",monospace;font-size:11px;color:var(--mag);letter-spacing:.08em;font-weight:700}
+  .b .note{background:var(--panel2);color:var(--text);border:2px dashed var(--line)}
+  .b .money{font-family:"Space Mono",monospace;font-weight:700}
+  .b .swatches span{border-color:rgba(255,255,255,.2)}
+
+  /* ---------- C : Plan du casse ---------- */
+  .c{--bg:#0F2E5C;--bg2:#123768;--chalk:#EAF2FF;--dim:#A7C0E6;--line:rgba(234,242,255,.22);--hi:#FFE066;--stamp:#FF5A4E;--blue:#7FB3FF;--safe:#7CE3B1;
+     background-color:var(--bg);
+     background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+     background-size:24px 24px;color:var(--chalk);font-family:"IBM Plex Sans",system-ui,sans-serif}
+  .c .dir-head h2{font-family:"Anton",Impact,sans-serif;font-size:52px;letter-spacing:.02em;text-transform:uppercase;color:var(--chalk)}
+  .c .phone{background:var(--bg2);border:1.5px solid var(--chalk);border-radius:6px;position:relative}
+  .c .phone::after{content:"FEUILLE 01 · VAULT RUSH · ÉCH. 1:1";position:absolute;right:12px;bottom:8px;font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--dim);letter-spacing:.1em}
+  .c .brand{font-family:"Anton",Impact,sans-serif;font-size:24px;letter-spacing:.04em;text-transform:uppercase}
+  .c .bal{font-family:"IBM Plex Mono",monospace;font-size:14px;color:var(--bg);background:var(--hi);padding:6px 10px;border-radius:3px;font-weight:600}
+  .c .label{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+  .c .chip{background:transparent;color:var(--chalk);border:1.5px dashed var(--blue);border-radius:3px}
+  .c .chip.on{background:var(--chalk);color:var(--bg);border:1.5px solid var(--chalk)}
+  .c table th{color:var(--dim);font-family:"IBM Plex Mono",monospace;font-weight:400;border-bottom:1.5px solid var(--chalk);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+  .c table td{font-family:"IBM Plex Mono",monospace;border-bottom:1px dashed var(--line)}
+  .c .step{background:transparent;color:var(--dim);border:1.5px solid var(--blue);border-radius:3px}
+  .c .step.done{background:var(--safe);color:var(--bg);border-color:var(--safe)}
+  .c .step.now{background:var(--hi);color:var(--bg);border-color:var(--hi)}
+  .c .door{background:transparent;border:1.5px solid var(--chalk);border-radius:3px;color:var(--chalk);position:relative}
+  .c .door::before{content:"";position:absolute;inset:8px 8px auto 8px;height:36px;border:1.5px dashed var(--blue)}
+  .c .btn.primary{background:var(--hi);color:var(--bg);border-radius:3px}
+  .c .btn.quiet{background:transparent;color:var(--chalk);border:1.5px solid var(--chalk);border-radius:3px}
+  .c .tile{background:var(--bg2);border:1.5px solid var(--chalk);border-radius:6px;position:relative}
+  .c .tile h3{font-family:"Anton",Impact,sans-serif;font-size:30px;margin:0;text-transform:uppercase;letter-spacing:.02em;line-height:1}
+  .c .tile p{margin:0;color:var(--dim);font-size:14px}
+  .c .tag{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--blue);letter-spacing:.1em}
+  .c .stamp{position:absolute;right:16px;top:14px;transform:rotate(-8deg);border:2.5px solid var(--stamp);color:var(--stamp);font-family:"Anton",Impact,sans-serif;font-size:14px;letter-spacing:.14em;padding:3px 8px;border-radius:3px;text-transform:uppercase}
+  .c .note{background:var(--bg2);color:var(--chalk);border:1.5px solid var(--chalk);border-radius:3px}
+  .c .money{font-family:"IBM Plex Mono",monospace;font-weight:600}
+  .c .swatches span{border-color:rgba(255,255,255,.35)}
+</style>
+
+<div class="intro">
+  <h1>Vault Rush Arcade : trois identités</h1>
+  <p>Même écran de jeu dans les trois cas : mise de 25,00 coins en mode Risk, troisième étage atteint, 78,00 coins encaissables. Les multiplicateurs affichés sont ceux du vrai moteur (Risk : 4 portes, 2 coffres, bord de 4 %). Les jetons de couleur et les polices de la direction retenue deviendront ceux du client.</p>
+  <p>Réponds avec la lettre (A, B ou C), ou un mélange (« le B avec la police du A »).</p>
+</div>
+
+<!-- ===================== A ===================== -->
+<section class="dir a">
+  <div class="dir-head">
+    <div>
+      <div class="kicker">Direction A</div>
+      <h2>Chambre forte</h2>
+      <p>Acier vert-noir, laiton, chiffres en mono comme sur un cadran de coffre. Sobre et adulte : le jeu prend le sérieux d'une banque et en fait un jouet. Le laiton est réservé à ce qui se touche (mise, encaisser, étage courant).</p>
+    </div>
+    <div class="tokens">
+      <div class="swatches"><span style="background:#0C1210"></span><span style="background:#151E19"></span><span style="background:#C9A44C"></span><span style="background:#EFE7D2"></span><span style="background:#4FB286"></span><span style="background:#E24C4C"></span></div>
+      <div class="fonts"><span>Titres : Big Shoulders Display 900</span><span>Texte : Public Sans</span><span>Chiffres : JetBrains Mono</span></div>
+    </div>
+  </div>
+  <div class="mock">
+    <div class="phone">
+      <div class="row"><span class="brand">VAULT RUSH</span><span class="bal">1 247,50 coins</span></div>
+      <div>
+        <div class="label">Étage 3 sur 6 · multiplicateur ×3,84</div>
+        <div class="steps" style="margin-top:8px">
+          <div class="step done">1<br>×1,92</div><div class="step done">2<br>×3,84</div><div class="step now">3<br>×7,68</div><div class="step">4<br>×15,36</div><div class="step">5<br>×30,72</div><div class="step">6<br>×61,44</div>
+        </div>
+      </div>
+      <div>
+        <div class="label">Choisis une porte</div>
+        <div class="doors" style="margin-top:8px"><div class="door">Porte 1</div><div class="door">Porte 2</div><div class="door">Porte 3</div><div class="door">Porte 4</div></div>
+      </div>
+      <div class="btn primary">Encaisser <span class="money">96,00 coins</span></div>
+      <div class="row"><span class="label">Mise 25,00 · si tu passes : 192,00</span><span class="label">2 coffres sur 4</span></div>
+      <div>
+        <div class="label">Avant de miser · tableau des récompenses</div>
+        <table style="margin-top:6px">
+          <tr><th>Mode</th><th>Chance</th><th>×1</th><th>×3</th><th>×6</th></tr>
+          <tr><td>Safe</td><td>67 %</td><td>1,47</td><td>3,31</td><td>11,16</td></tr>
+          <tr><td>Risk</td><td>50 %</td><td>1,92</td><td>7,68</td><td>61,44</td></tr>
+          <tr><td>Insane</td><td>40 %</td><td>2,35</td><td>14,69</td><td>229,50</td></tr>
+        </table>
+      </div>
+      <div class="chips"><span class="chip">1</span><span class="chip">5</span><span class="chip">10</span><span class="chip on">25</span><span class="chip">50</span><span class="chip">100</span></div>
+    </div>
+    <div class="side">
+      <div class="tiles">
+        <div class="tile"><span class="tag">JEU 01 · 6 ÉTAGES</span><h3>Vault Rush</h3><p>Monte, choisis une porte par étage, encaisse avant l'alarme.</p><div class="actions"><span class="btn primary" style="padding:10px 16px;font-size:14px">Jouer</span><span class="btn quiet" style="padding:10px 16px;font-size:14px">Règles</span></div></div>
+        <div class="tile"><span class="tag">JEU 02 · 8 LIGNES</span><h3>Laser Grid</h3><p>Traverse la grille ligne par ligne sans toucher un laser.</p><div class="actions"><span class="btn primary" style="padding:10px 16px;font-size:14px">Jouer</span><span class="btn quiet" style="padding:10px 16px;font-size:14px">Règles</span></div></div>
+      </div>
+      <div class="note"><strong>Bilan de partie</strong> (fin de manche)<br>Mise <span class="money">25,00</span> · Récupéré <span class="money">96,00</span> · Net <span class="money" style="color:var(--safe)">+71,00 coins</span><br>Étage 3 sur 6 · ×3,84 · Nouveau solde <span class="money">1 318,50</span></div>
+      <div class="note" style="border-left-color:var(--alarm)"><strong style="color:var(--alarm)">Alarme.</strong> Porte 2, étage 4. Mise perdue : <span class="money">25,00 coins</span>. Solde <span class="money">1 222,50</span>.</div>
+      <div class="note" style="border-left-color:var(--dim)">Coins fictifs, sans valeur. Recharge gratuite de 1 000 coins sous 10 coins, une fois par jour. Gain plafonné à 10 000 coins par partie.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== B ===================== -->
+<section class="dir b">
+  <div class="dir-head">
+    <div>
+      <div class="kicker">Direction B</div>
+      <h2>Néon arcade</h2>
+      <p>Borne d'arcade des années 90 : violet profond, magenta, cyan et jaune qui brillent. Boutons ronds, ombres dures, tout est vivant. Le plus « portfolio qui claque », le moins discret.</p>
+    </div>
+    <div class="tokens">
+      <div class="swatches"><span style="background:#0F0A1E"></span><span style="background:#1A1133"></span><span style="background:#FF3D8A"></span><span style="background:#35E5FF"></span><span style="background:#FFD23F"></span><span style="background:#41F0A5"></span></div>
+      <div class="fonts"><span>Titres : Bungee</span><span>Texte : Rubik</span><span>Chiffres : Space Mono</span></div>
+    </div>
+  </div>
+  <div class="mock">
+    <div class="phone">
+      <div class="row"><span class="brand">VAULT RUSH</span><span class="bal">1 247,50 ¢</span></div>
+      <div>
+        <div class="label">Étage 3 / 6 · ×3,84</div>
+        <div class="steps" style="margin-top:8px">
+          <div class="step done">1<br>×1,92</div><div class="step done">2<br>×3,84</div><div class="step now">3<br>×7,68</div><div class="step">4<br>×15,36</div><div class="step">5<br>×30,72</div><div class="step">6<br>×61,44</div>
+        </div>
+      </div>
+      <div>
+        <div class="label">Choisis une porte</div>
+        <div class="doors" style="margin-top:8px"><div class="door">1</div><div class="door">2</div><div class="door">3</div><div class="door">4</div></div>
+      </div>
+      <div class="btn primary">ENCAISSER <span class="money">96,00</span></div>
+      <div class="row"><span class="label">Mise 25,00 · si tu passes : 192,00</span><span class="label">2 coffres / 4</span></div>
+      <div>
+        <div class="label">Tableau des récompenses</div>
+        <table style="margin-top:6px">
+          <tr><th>Mode</th><th>Chance</th><th>×1</th><th>×3</th><th>×6</th></tr>
+          <tr><td>Safe</td><td>67 %</td><td>1,47</td><td>3,31</td><td>11,16</td></tr>
+          <tr><td>Risk</td><td>50 %</td><td>1,92</td><td>7,68</td><td>61,44</td></tr>
+          <tr><td>Insane</td><td>40 %</td><td>2,35</td><td>14,69</td><td>229,50</td></tr>
+        </table>
+      </div>
+      <div class="chips"><span class="chip">1</span><span class="chip">5</span><span class="chip">10</span><span class="chip on">25</span><span class="chip">50</span><span class="chip">100</span></div>
+    </div>
+    <div class="side">
+      <div class="tiles">
+        <div class="tile vr"><span class="tag">JEU 01 · 6 ÉTAGES</span><h3>Vault Rush</h3><p>Monte, choisis une porte par étage, encaisse avant l'alarme.</p><div class="actions"><span class="btn primary" style="padding:10px 16px;font-size:14px">Jouer</span><span class="btn quiet" style="padding:10px 16px;font-size:14px">Règles</span></div></div>
+        <div class="tile lg"><span class="tag">JEU 02 · 8 LIGNES</span><h3>Laser Grid</h3><p>Traverse la grille ligne par ligne sans toucher un laser.</p><div class="actions"><span class="btn primary" style="padding:10px 16px;font-size:14px">Jouer</span><span class="btn quiet" style="padding:10px 16px;font-size:14px">Règles</span></div></div>
+      </div>
+      <div class="note"><strong style="color:var(--yel)">BILAN</strong><br>Mise <span class="money">25,00</span> · Récupéré <span class="money">96,00</span> · Net <span class="money" style="color:var(--safe)">+71,00 coins</span><br>Étage 3 / 6 · ×3,84 · Solde <span class="money">1 318,50</span></div>
+      <div class="note" style="border-color:var(--alarm)"><strong style="color:var(--alarm)">ALARME !</strong> Porte 2, étage 4. Mise perdue : <span class="money">25,00 coins</span>. Solde <span class="money">1 222,50</span>.</div>
+      <div class="note">Coins fictifs, sans valeur. Recharge gratuite de 1 000 coins sous 10 coins, une fois par jour. Gain plafonné à 10 000 coins.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== C ===================== -->
+<section class="dir c">
+  <div class="dir-head">
+    <div>
+      <div class="kicker">Direction C</div>
+      <h2>Plan du casse</h2>
+      <p>Un bleu de Prusse de plan d'architecte, lignes à la craie, tampons rouges, surligneur jaune pour ce qui est cliquable. Le joueur prépare son braquage sur la feuille. Original et lisible, un peu moins « jeu », plus « objet ».</p>
+    </div>
+    <div class="tokens">
+      <div class="swatches"><span style="background:#0F2E5C"></span><span style="background:#123768"></span><span style="background:#EAF2FF"></span><span style="background:#7FB3FF"></span><span style="background:#FFE066"></span><span style="background:#FF5A4E"></span></div>
+      <div class="fonts"><span>Titres : Anton</span><span>Texte : IBM Plex Sans</span><span>Chiffres : IBM Plex Mono</span></div>
+    </div>
+  </div>
+  <div class="mock">
+    <div class="phone">
+      <div class="row"><span class="brand">Vault Rush</span><span class="bal">1 247,50 coins</span></div>
+      <div>
+        <div class="label">Coupe · étage 3 sur 6 · ×3,84</div>
+        <div class="steps" style="margin-top:8px">
+          <div class="step done">1<br>×1,92</div><div class="step done">2<br>×3,84</div><div class="step now">3<br>×7,68</div><div class="step">4<br>×15,36</div><div class="step">5<br>×30,72</div><div class="step">6<br>×61,44</div>
+        </div>
+      </div>
+      <div>
+        <div class="label">Choisis une porte</div>
+        <div class="doors" style="margin-top:8px"><div class="door">P-1</div><div class="door">P-2</div><div class="door">P-3</div><div class="door">P-4</div></div>
+      </div>
+      <div class="btn primary">Encaisser <span class="money">96,00 coins</span></div>
+      <div class="row"><span class="label">Mise 25,00 · si tu passes : 192,00</span><span class="label">2 coffres sur 4</span></div>
+      <div>
+        <div class="label">Nomenclature · récompenses</div>
+        <table style="margin-top:6px">
+          <tr><th>Mode</th><th>Chance</th><th>×1</th><th>×3</th><th>×6</th></tr>
+          <tr><td>Safe</td><td>67 %</td><td>1,47</td><td>3,31</td><td>11,16</td></tr>
+          <tr><td>Risk</td><td>50 %</td><td>1,92</td><td>7,68</td><td>61,44</td></tr>
+          <tr><td>Insane</td><td>40 %</td><td>2,35</td><td>14,69</td><td>229,50</td></tr>
+        </table>
+      </div>
+      <div class="chips"><span class="chip">1</span><span class="chip">5</span><span class="chip">10</span><span class="chip on">25</span><span class="chip">50</span><span class="chip">100</span></div>
+    </div>
+    <div class="side">
+      <div class="tiles">
+        <div class="tile"><span class="stamp">Ouvert</span><span class="tag">PLAN 01 · 6 ÉTAGES</span><h3>Vault Rush</h3><p>Monte, choisis une porte par étage, encaisse avant l'alarme.</p><div class="actions"><span class="btn primary" style="padding:10px 16px;font-size:14px">Jouer</span><span class="btn quiet" style="padding:10px 16px;font-size:14px">Règles</span></div></div>
+        <div class="tile"><span class="stamp">Nouveau</span><span class="tag">PLAN 02 · 8 LIGNES</span><h3>Laser Grid</h3><p>Traverse la grille ligne par ligne sans toucher un laser.</p><div class="actions"><span class="btn primary" style="padding:10px 16px;font-size:14px">Jouer</span><span class="btn quiet" style="padding:10px 16px;font-size:14px">Règles</span></div></div>
+      </div>
+      <div class="note"><strong>Bilan de partie</strong><br>Mise <span class="money">25,00</span> · Récupéré <span class="money">96,00</span> · Net <span class="money" style="color:var(--safe)">+71,00 coins</span><br>Étage 3 sur 6 · ×3,84 · Nouveau solde <span class="money">1 318,50</span></div>
+      <div class="note" style="border-color:var(--stamp)"><strong style="color:var(--stamp)">ALARME.</strong> Porte 2, étage 4. Mise perdue : <span class="money">25,00 coins</span>. Solde <span class="money">1 222,50</span>.</div>
+      <div class="note">Coins fictifs, sans valeur. Recharge gratuite de 1 000 coins sous 10 coins, une fois par jour. Gain plafonné à 10 000 coins par partie.</div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap-choice">
+  <h2>Ce qui est identique dans les trois</h2>
+  <ul>
+    <li>Le tableau des récompenses est visible avant de miser, avec la chance par étage et le plafond de 10 000 coins.</li>
+    <li>La progression montre l'étage courant, le multiplicateur courant et celui de l'étage suivant, et la somme encaissable en un seul bouton.</li>
+    <li>Le bilan de fin de partie donne mise, récupéré, net, nouveau solde.</li>
+    <li>Montants toujours en « 1 247,50 coins », jamais de 4,699999.</li>
+    <li>Laser Grid utilise les mêmes composants (lignes au lieu d'étages, cases au lieu de portes).</li>
+  </ul>
+</div>

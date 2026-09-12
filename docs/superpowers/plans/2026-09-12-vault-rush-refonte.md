@@ -87,9 +87,9 @@
 
 ---
 
-### Task 3 : Identité visuelle (après le choix de Lucas)
+### Task 3 : Identité visuelle « Néon arcade »
 
-**Entrée :** la direction choisie parmi les trois propositions (artefact), avec ses jetons (couleurs, polices, rayons, ombres, mouvement) et sa signature.
+**Entrée :** direction **B « Néon arcade »** choisie par Lucas le 12/09/2026 ; jetons, polices, rayons, ombres et mouvement figés dans la spec §3 (tableau des jetons). Maquette de référence : `docs/design/direction-b-neon-arcade.html`.
 
 **Files:**
 - Create: `client/src/styles/tokens.css`, `client/src/styles/base.css`, `client/src/components/{Button,Field,Amount,StepTrack,OptionGrid,RewardTable,Balance,Toast,PageTitle,GameCard}.tsx`, `client/tests/{tokens,contrast,vocabulary,components}.test.tsx`, `client/vitest.config.ts`

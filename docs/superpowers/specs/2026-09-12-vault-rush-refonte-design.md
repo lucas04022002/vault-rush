@@ -56,7 +56,23 @@ GameDefinition {
 - **Reprise** : à l'ouverture d'un jeu, si une partie est active, elle s'affiche directement (« Partie en cours reprise »).
 - Montants toujours formatés `Intl.NumberFormat("fr-FR", 2 décimales) + " coins"`.
 - Accessibilité : labels, `aria-pressed` sur mises et modes, `role="status"` pour résultats et erreurs, focus déplacé au changement d'écran, `prefers-reduced-motion`, son coupé par défaut et jamais joué avant la réponse API.
-- Identité visuelle : **à choisir** (trois propositions en artefact). Jetons dans `client/src/styles/tokens.css`, aucune couleur hors jetons (test de grep), contraste AA testé.
+- Identité visuelle : **direction B « Néon arcade »**, choisie par Lucas le 12/09/2026 parmi trois propositions (A « Chambre forte », B « Néon arcade », C « Plan du casse »). Borne d'arcade : violet profond, magenta, cyan, jaune qui brillent, boutons ronds à ombre dure, titres Bungee. Jetons dans `client/src/styles/tokens.css`, aucune couleur hors jetons (test de grep), contraste AA testé.
+
+  | Jeton | Valeur | Usage |
+  |---|---|---|
+  | `--bg` | `#0F0A1E` | fond de page (avec halo radial `#2A1650` en haut) |
+  | `--panel` | `#1A1133` | cartes, écran de jeu |
+  | `--panel2` | `#26193F` | surfaces secondaires, cases, options |
+  | `--line` | `#3A2B5C` | bordures (2 px) |
+  | `--mag` | `#FF3D8A` | accent chaud : mise/mode sélectionné, ombre des titres, étiquettes |
+  | `--cyan` | `#35E5FF` | accent froid : marque, options (portes/cases), boutons secondaires |
+  | `--yel` | `#FFD23F` | action principale (Encaisser, Jouer), solde, étape courante ; texte dessus `#2A1B00`, ombre dure `#B58A00` |
+  | `--text` | `#FFF6FA` | texte |
+  | `--dim` | `#A99CC4` | texte secondaire, étiquettes |
+  | `--safe` | `#41F0A5` | étape réussie, bénéfice ; texte dessus `#04261A` |
+  | `--alarm` | `#FF4D4D` | alarme/laser, perte, erreurs |
+
+  Polices Google : titres **Bungee** (marque, noms de jeux, « Encaisser »), texte **Rubik** 400/600/800, chiffres **Space Mono** 400/700 (`tabular-nums`). Rayons : boutons et puces en pilule (999 px), cartes 20 px, options 14 px. Ombres : lueur `0 0 14px rgba(255,61,138,.6)` sur la sélection, `0 0 40px rgba(255,61,138,.25)` autour de l'écran de jeu, ombre dure `0 6px 0 #B58A00` sous le bouton principal (enfoncé de 4 px au clic). Mouvement : lueur qui pulse sur l'étape courante, révélation des options par bascule, tout coupé sous `prefers-reduced-motion`. Thème unique (sombre), fond peint explicitement.
 
 ## 4. Qualité, Docker, CI, déploiement
 
