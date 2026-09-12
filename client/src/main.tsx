@@ -4,6 +4,7 @@ import { RouterProvider, createBrowserRouter } from "react-router";
 import { routes } from "./router.tsx";
 import { SessionProvider } from "./session.tsx";
 import { Showcase } from "./dev/Showcase.tsx";
+import "./styles/fonts.css";
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/components.css";

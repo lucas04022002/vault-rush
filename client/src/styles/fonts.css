@@ -1,0 +1,27 @@
+/**
+ * Polices auto-hébergées (@fontsource), servies par le même domaine que le site.
+ *
+ * Aucune requête vers un fournisseur de polices tiers : les mentions légales
+ * promettent « aucun tiers », et un tel appel transmettrait l'IP du visiteur.
+ * C'est aussi ce qui permet à la CSP de rester en `default-src 'self'`.
+ * Seuls les sous-ensembles latins sont importés (le site est en français) ;
+ * les piles de repli restent déclarées dans tokens.css.
+ */
+
+/* Bungee — titres */
+@import "@fontsource/bungee/latin-400.css";
+@import "@fontsource/bungee/latin-ext-400.css";
+
+/* Rubik — texte courant (400), demi-gras (600) et gras (800) */
+@import "@fontsource/rubik/latin-400.css";
+@import "@fontsource/rubik/latin-ext-400.css";
+@import "@fontsource/rubik/latin-600.css";
+@import "@fontsource/rubik/latin-ext-600.css";
+@import "@fontsource/rubik/latin-800.css";
+@import "@fontsource/rubik/latin-ext-800.css";
+
+/* Space Mono — chiffres et montants */
+@import "@fontsource/space-mono/latin-400.css";
+@import "@fontsource/space-mono/latin-ext-400.css";
+@import "@fontsource/space-mono/latin-700.css";
+@import "@fontsource/space-mono/latin-ext-700.css";

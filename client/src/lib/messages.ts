@@ -40,14 +40,31 @@ const MESSAGES: Record<string, string> = {
   // Transport
   invalid_body: "Saisie invalide.",
   invalid_limit: "Filtre invalide.",
+  invalid_json: "Requête illisible : recharge la page et réessaie.",
+  payload_too_large: "Requête trop volumineuse.",
   not_found: "Page introuvable.",
   network_error: "Serveur injoignable. Vérifie ta connexion.",
   internal_error: "Erreur du serveur. Réessaie dans un instant.",
 };
 
+/**
+ * Le détail français d'une saisie refusée, quand le serveur en donne un.
+ *
+ * Le serveur sait ce qui cloche (« Pseudo : 3 à 20 caractères… ») ; « Saisie
+ * invalide. » le jetterait et laisserait le joueur deviner.
+ */
+function bodyDetail(err: ApiError): string | null {
+  const details = err.payload.details;
+  const premier = Array.isArray(details) ? details[0] : undefined;
+  const message =
+    premier && typeof premier === "object" ? (premier as { message?: unknown }).message : undefined;
+  return typeof message === "string" && message.trim() !== "" ? message.trim() : null;
+}
+
 /** Le message français d'une erreur, quelle qu'elle soit. */
 export function errorMessage(err: unknown): string {
   if (err instanceof ApiError) {
+    if (err.code === "invalid_body") return bodyDetail(err) ?? MESSAGES.invalid_body;
     const known = MESSAGES[err.code];
     if (known) return known;
   }

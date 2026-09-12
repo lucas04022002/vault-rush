@@ -134,4 +134,29 @@ describe("connexion", () => {
 
     expect(await screen.findByText("Pseudo ou mot de passe incorrect.")).toBeInTheDocument();
   });
+
+  it("le détail de saisie du serveur est affiché tel quel", async () => {
+    // Le serveur sait ce qui cloche : « Saisie invalide. » jetterait l'explication.
+    baseApi(false)
+      .on("POST /api/auth/login", {
+        status: 400,
+        json: {
+          error: "invalid_body",
+          details: [
+            {
+              field: "username",
+              message: "Pseudo : 3 à 20 caractères, lettres, chiffres ou _ (pas de tiret ni d'espace).",
+            },
+          ],
+        },
+      })
+      .install();
+    renderApp("/connexion");
+
+    await userEvent.type(await screen.findByLabelText("Pseudo"), "mauvais-pseudo");
+    await userEvent.type(screen.getByLabelText("Mot de passe"), "motdepasse1");
+    await userEvent.click(screen.getByRole("button", { name: "Se connecter" }));
+
+    expect(await screen.findByText(/pas de tiret ni d'espace/)).toBeInTheDocument();
+  });
 });

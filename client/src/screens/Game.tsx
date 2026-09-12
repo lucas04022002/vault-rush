@@ -82,7 +82,9 @@ export function Game() {
         <Toast kind="info">Partie en cours reprise.</Toast>
       ) : null}
       {partie.error ? <Toast kind="bad">{partie.error}</Toast> : null}
-      {partie.message && !partie.error ? (
+      {/* Un 409 adopté (reprise, partie déjà close) informe : il n'est pas rouge. */}
+      {partie.notice && !partie.error ? <Toast kind="info">{partie.notice}</Toast> : null}
+      {partie.message && !partie.error && !partie.notice ? (
         <Toast kind={round?.status === "lost" ? "bad" : "good"}>{partie.message}</Toast>
       ) : null}
 

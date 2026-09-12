@@ -36,6 +36,11 @@ export type LadderGame = {
   resumed: boolean;
   pending: boolean;
   error: string | null;
+  /**
+   * Information, pas échec : un 409 dont l'état a été adopté (partie reprise,
+   * partie déjà terminée ailleurs). Le joueur doit le lire en bleu, pas en rouge.
+   */
+  notice: string | null;
   /** Message de résultat (étape franchie, bilan) : un Toast « bon ». */
   message: string | null;
   lastBet: LadderBet | null;
@@ -58,6 +63,7 @@ export function useLadderGame(gameId: string): LadderGame {
   const [resumed, setResumed] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [lastBet, setLastBet] = useState<LadderBet | null>(null);
 
@@ -95,6 +101,7 @@ export function useLadderGame(gameId: string): LadderGame {
     setRevealed(null);
     setResumed(false);
     setMessage(null);
+    setNotice(null);
     setError(null);
 
     void (async () => {
@@ -124,6 +131,7 @@ export function useLadderGame(gameId: string): LadderGame {
     busy.current = true;
     setPending(true);
     setError(null);
+    setNotice(null);
     try {
       await action();
     } finally {
@@ -147,7 +155,11 @@ export function useLadderGame(gameId: string): LadderGame {
           // Une partie était déjà ouverte : on la reprend au lieu d'en créer une.
           if (err instanceof ApiError && err.code === "round_active" && err.payload.round) {
             setRevealed(null);
+            setMessage(null);
             adopt(err.payload.round as Round, { resumed: true });
+            // Reprise réussie : le bandeau « Partie en cours reprise. » suffit,
+            // ce n'est pas un échec et ça ne doit pas s'afficher en rouge.
+            return;
           }
           setError(errorMessage(err));
         } finally {
@@ -191,10 +203,17 @@ export function useLadderGame(gameId: string): LadderGame {
           ) {
             const adoptée = err.payload.round as Round;
             setRevealed(null);
+            setMessage(null);
             adopt(adoptée);
             // La partie a pu se terminer ailleurs (second onglet, requête
             // doublée) : le gain est déjà crédité, le bilan doit le montrer.
             if (adoptée.status !== "playing") await refreshBalance();
+            setNotice(
+              adoptée.status === "playing"
+                ? "Cette étape a déjà été jouée : l'écran a été remis à jour."
+                : "Cette partie était déjà terminée.",
+            );
+            return;
           }
           setError(errorMessage(err));
         }
@@ -217,8 +236,13 @@ export function useLadderGame(gameId: string): LadderGame {
           if (!alive.current) return;
           if (err instanceof ApiError && err.code === "round_not_active" && err.payload.round) {
             const adoptée = err.payload.round as Round;
+            setMessage(null);
             adopt(adoptée);
             if (adoptée.status !== "playing") await refreshBalance();
+            // L'encaissement était déjà passé (réseau coupé, second onglet) :
+            // le crédit est acquis, c'est une information, pas une erreur.
+            setNotice("Cette partie était déjà terminée.");
+            return;
           }
           setError(errorMessage(err));
         }
@@ -237,6 +261,7 @@ export function useLadderGame(gameId: string): LadderGame {
     setRevealed(null);
     setResumed(false);
     setMessage(null);
+    setNotice(null);
     setError(null);
   }, []);
 
@@ -249,6 +274,7 @@ export function useLadderGame(gameId: string): LadderGame {
     resumed,
     pending,
     error,
+    notice,
     message,
     lastBet,
     start,

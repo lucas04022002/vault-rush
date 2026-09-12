@@ -93,7 +93,9 @@ describe("useLadderGame", () => {
 
     expect(result.current.state).toBe("active");
     expect(result.current.round?.step).toBe(4);
-    expect(result.current.error).toMatch(/étape/i);
+    // L'état du serveur a été adopté : c'est une information, pas un échec.
+    expect(result.current.error).toBeNull();
+    expect(result.current.notice).toMatch(/étape/i);
   });
 
   it("une alarme termine la partie et garde la révélation", async () => {
@@ -206,6 +208,8 @@ describe("useLadderGame", () => {
     expect(result.current.state).toBe("active");
     expect(result.current.round?.step).toBe(1);
     expect(result.current.resumed).toBe(true);
+    // La reprise est annoncée par le bandeau « Partie en cours reprise. », pas en rouge.
+    expect(result.current.error).toBeNull();
   });
 
   it("aucune requête ne part pendant qu'une autre est en vol", async () => {
@@ -321,5 +325,31 @@ describe("useLadderGame", () => {
     expect(result.current.state).toBe("finished");
     expect(result.current.round?.status).toBe("cashed_out");
     expect(api.callsTo("GET /api/wallet").length).toBe(1);
+    expect(result.current.error).toBeNull();
+    expect(result.current.notice).toBe("Cette partie était déjà terminée.");
+  });
+
+  it("un encaissement rejoué s'affiche en information, pas en erreur", async () => {
+    // Réseau coupé puis bouton recliqué : le crédit est déjà passé côté serveur.
+    const api = baseApi()
+      .on("GET /api/games/vault-rush/current", { json: { round: round(3) } })
+      .on("POST /api/games/vault-rush/cashout", {
+        status: 409,
+        json: {
+          error: "round_not_active",
+          round: round(3, { status: "cashed_out", payoutCents: 19_200, cashoutCents: 19_200 }),
+        },
+      })
+      .on("GET /api/wallet", { json: { balanceCents: 116_700 } });
+    const { result } = mount(api);
+    await waitFor(() => expect(result.current.state).toBe("active"));
+
+    await act(async () => {
+      await result.current.cashout();
+    });
+
+    expect(result.current.state).toBe("finished");
+    expect(result.current.error).toBeNull();
+    expect(result.current.notice).toBe("Cette partie était déjà terminée.");
   });
 });

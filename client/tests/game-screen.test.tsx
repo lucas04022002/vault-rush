@@ -34,6 +34,28 @@ describe("écran de jeu", () => {
     expect(résumé).toHaveTextContent(/192,00 coins/);
   });
 
+  it("un encaissement déjà passé s'affiche en information, pas en rouge", async () => {
+    // 409 `round_not_active` adopté : le gain est acquis, rien n'a échoué pour le joueur.
+    baseApi()
+      .on("GET /api/games/vault-rush/current", { json: { round: round(2) } })
+      .on("POST /api/games/vault-rush/cashout", {
+        status: 409,
+        json: {
+          error: "round_not_active",
+          round: round(2, { status: "cashed_out", payoutCents: 9600, cashoutCents: 9600 }),
+        },
+      })
+      .on("GET /api/wallet", { json: { balanceCents: 107_100 } })
+      .install();
+    renderApp("/jeux/vault-rush");
+
+    await userEvent.click(await screen.findByRole("button", { name: /Encaisser/ }));
+
+    const info = await screen.findByText("Cette partie était déjà terminée.");
+    expect(info).toHaveAttribute("data-kind", "info");
+    expect(screen.queryByText("Cette partie est terminée.")).not.toBeInTheDocument();
+  });
+
   it("affiche le bilan complet après une alarme", async () => {
     baseApi()
       .on("GET /api/games/vault-rush/current", { json: { round: round(2) } })
