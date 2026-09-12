@@ -1,36 +1,48 @@
-import { useState } from "react";
-import { Login } from "./screens/Login.tsx";
-import { Game } from "./screens/Game.tsx";
-import { loadSession, saveSession, clearSession, type Session } from "./session.ts";
+import { NavLink, Link, Outlet, useLocation } from "react-router";
+import { Balance } from "./components/index.ts";
+import { useSession } from "./session.tsx";
 
+/** Le cadre commun : marque, solde, navigation, pied de page. */
 export function App() {
-  const [session, setSession] = useState<Session | null>(() => loadSession());
-  const [balance, setBalance] = useState(0);
-
-  const handleLogin = (s: Session, bal: number) => {
-    saveSession(s);
-    setBalance(bal);
-    setSession(s);
-  };
-
-  const handleLogout = () => {
-    clearSession();
-    setSession(null);
-  };
+  const { user, balanceCents, loading } = useSession();
+  const surLaConnexion = useLocation().pathname === "/connexion";
 
   return (
-    <div className="app">
-      <h1 className="brand">VAULT RUSH</h1>
-      {session ? (
-        <Game
-          key={session.userId}
-          session={session}
-          initialBalance={balance}
-          onLogout={handleLogout}
-        />
-      ) : (
-        <Login onLogin={handleLogin} />
-      )}
+    <div className="shell">
+      <header className="shell__top">
+        <Link to="/" className="brand">
+          VAULT RUSH
+        </Link>
+        {loading || (!user && surLaConnexion) ? null : user ? (
+          <Balance cents={balanceCents} />
+        ) : (
+          <Link to="/connexion" className="shell__signin">
+            Se connecter
+          </Link>
+        )}
+      </header>
+
+      <nav className="shell__nav" aria-label="Navigation principale">
+        <NavLink to="/" end>
+          Arcade
+        </NavLink>
+        <NavLink to="/historique">Historique</NavLink>
+        <NavLink to="/classement">Classement</NavLink>
+        <NavLink to="/compte">Compte</NavLink>
+      </nav>
+
+      <main className="page">
+        <Outlet />
+      </main>
+
+      <footer className="shell__foot">
+        <p>Coins fictifs, sans valeur. Jeu gratuit.</p>
+        <p className="shell__links">
+          <Link to="/cgu">CGU</Link>
+          <span aria-hidden="true"> · </span>
+          <Link to="/mentions-legales">Mentions légales</Link>
+        </p>
+      </footer>
     </div>
   );
 }
