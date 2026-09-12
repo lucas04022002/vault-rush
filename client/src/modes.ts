@@ -13,9 +13,9 @@ export type ModeInfo = {
 };
 
 export const MODES: ModeInfo[] = [
-  { id: "safe", label: "Safe", doors: 3, safe: 2, alarm: 1, maxFloor: 6, risk: "Faible", color: "#22d3ee" },
-  { id: "risk", label: "Risk", doors: 4, safe: 2, alarm: 2, maxFloor: 6, risk: "Moyen", color: "#facc15" },
-  { id: "insane", label: "Insane", doors: 5, safe: 2, alarm: 3, maxFloor: 6, risk: "Élevé", color: "#ef4444" },
+  { id: "safe", label: "Safe", doors: 3, safe: 2, alarm: 1, maxFloor: 6, risk: "Faible", color: "var(--cyan)" },
+  { id: "risk", label: "Risk", doors: 4, safe: 2, alarm: 2, maxFloor: 6, risk: "Moyen", color: "var(--yel)" },
+  { id: "insane", label: "Insane", doors: 5, safe: 2, alarm: 3, maxFloor: 6, risk: "Élevé", color: "var(--alarm)" },
 ];
 
 export function modeInfo(id: GameMode): ModeInfo {
