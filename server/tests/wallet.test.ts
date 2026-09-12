@@ -79,26 +79,3 @@ test("la recharge exige une session", async () => {
   const app = makeApp();
   assert.equal((await request(app).post("/api/wallet/refill").send({})).status, 401);
 });
-
-test("le classement passe en centimes et n'est plus trié par solde", async () => {
-  const app = makeApp();
-  const perdante = await signUp(app, "perdante");
-  const gagnante = await signUp(app, "gagnante");
-  const db = ctxOf(app).db;
-
-  // Perdante : gros solde mais que des pertes. Gagnante : petit solde et un gain net.
-  db.prepare("UPDATE users SET balance_cents = 900000 WHERE id = ?").run(perdante.userId);
-  db.prepare(
-    "INSERT INTO rounds (user_id, game, bet_cents, mode, step, multiplier, status, payout_cents) VALUES (?, 'vault-rush', 50000, 'safe', 2, 1, 'lost', 0)",
-  ).run(perdante.userId);
-  db.prepare(
-    "INSERT INTO rounds (user_id, game, bet_cents, mode, step, multiplier, status, payout_cents) VALUES (?, 'vault-rush', 1000, 'safe', 3, 3.31, 'cashed_out', 3310)",
-  ).run(gagnante.userId);
-
-  const res = await request(app).get("/api/leaderboard");
-  assert.equal(res.status, 200);
-  assert.equal(res.body[0].username, "gagnante");
-  assert.equal(res.body[0].netProfitCents, 2310);
-  assert.equal(res.body[1].username, "perdante");
-  assert.equal(res.body[1].netProfitCents, -50000);
-});

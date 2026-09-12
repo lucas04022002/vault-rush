@@ -8,12 +8,26 @@ import { HttpError } from "./errors.ts";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
-function selfOrigin(req: Request): string {
-  return `${req.protocol}://${req.get("host")}`;
-}
-
+/**
+ * Même origine que la requête ?
+ *
+ * On compare l'hôte annoncé par l'en-tête `Host` (celui que le navigateur a
+ * réellement visé) plutôt qu'une origine reconstruite : derrière un proxy TLS,
+ * le serveur parle en HTTP alors que le navigateur a vu du HTTPS. `req.protocol`
+ * suit `X-Forwarded-Proto` uniquement si `trust proxy` est armé (variable
+ * `TRUSTED_PROXY_HOPS`) — sinon la garde refuse, ce qui est le bon sens du
+ * refus : fermé par défaut.
+ */
 function isAllowed(req: Request, origin: string, clientUrl?: string): boolean {
-  return origin === selfOrigin(req) || (clientUrl !== undefined && origin === clientUrl);
+  if (clientUrl !== undefined && origin === clientUrl) return true;
+
+  let url: URL;
+  try {
+    url = new URL(origin);
+  } catch {
+    return false;
+  }
+  return url.host === req.get("host") && url.protocol === `${req.protocol}:`;
 }
 
 /** Refuse (403) toute mutation portant une origine étrangère. */

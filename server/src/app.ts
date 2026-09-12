@@ -6,12 +6,12 @@ import helmet from "helmet";
 import { createRateLimiter } from "./auth/rateLimit.ts";
 import { readSecret } from "./auth/jwt.ts";
 import { sessionMiddleware } from "./auth/session.ts";
-import type { AppContext, PlayFloorFn } from "./context.ts";
+import type { AppContext } from "./context.ts";
 import { openDb } from "./database/db.ts";
 import { runMigrations } from "./database/migrate.ts";
 import { errorHandler, notFoundHandler } from "./http/errors.ts";
 import { corsForClient, originGuard } from "./http/origin.ts";
-import { playFloor as realPlayFloor } from "./modules/game/game.algorithm.ts";
+import { drawOptions as realDrawOptions, type DrawFn } from "./engine/ladder.ts";
 import { createRouter } from "./router.ts";
 
 /**
@@ -23,8 +23,8 @@ import { createRouter } from "./router.ts";
 
 export type CreateAppOptions = {
   dbPath?: string;
-  /** Tirage d'un étage ; les tests l'injectent pour neutraliser le hasard. */
-  playFloor?: PlayFloorFn;
+  /** Tirage d'une étape ; les tests l'injectent pour neutraliser le hasard. */
+  drawOptions?: DrawFn;
 };
 
 const LOGIN_ATTEMPTS = 10;
@@ -33,6 +33,7 @@ const CLIENT_DIST = fileURLToPath(new URL("../../client/dist/", import.meta.url)
 
 export function createApp(options: CreateAppOptions = {}): Express {
   const isProduction = process.env.NODE_ENV === "production";
+  const trustedProxyHops = Number(process.env.TRUSTED_PROXY_HOPS) || 0;
   const ctx: AppContext = {
     db: openDb(options.dbPath),
     config: {
@@ -43,13 +44,17 @@ export function createApp(options: CreateAppOptions = {}): Express {
       isProduction,
     },
     loginLimiter: createRateLimiter({ max: LOGIN_ATTEMPTS, windowMs: LOGIN_WINDOW_MS }),
-    playFloor: options.playFloor ?? realPlayFloor,
+    drawOptions: options.drawOptions ?? realDrawOptions,
   };
   runMigrations(ctx.db);
 
   const app = express();
   app.locals.ctx = ctx;
   app.disable("x-powered-by");
+  // Derrière un proxy TLS (Coolify/Traefik), c'est lui qui parle en HTTPS :
+  // sans cette confiance déclarée, `req.protocol` reste « http » et la garde
+  // d'origine refuserait toutes les mutations en production.
+  if (trustedProxyHops > 0) app.set("trust proxy", trustedProxyHops);
   // CSP désactivée tant que le client n'est pas refait (tâches 3 et 4).
   app.use(helmet({ contentSecurityPolicy: false }));
   if (ctx.config.clientUrl) app.use(corsForClient(ctx.config.clientUrl));

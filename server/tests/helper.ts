@@ -1,7 +1,7 @@
 import request from "supertest";
 import type { Express } from "express";
 import { createApp, type CreateAppOptions } from "../src/app.ts";
-import { getMultiplier, type GameMode, type PlayResult } from "../src/modules/game/game.algorithm.ts";
+import type { Outcome } from "../src/engine/ladder.ts";
 
 /**
  * Outillage commun aux tests : chaque fichier ouvre sa propre base en mémoire,
@@ -22,27 +22,18 @@ export function ctxOf(app: Express) {
   return app.locals.ctx;
 }
 
-/** Tirage truqué : toutes les portes sont sûres (le hasard est neutralisé). */
-export function alwaysSafe(mode: GameMode, _door: number, currentFloor: number): PlayResult {
-  const nextFloor = currentFloor + 1;
-  return {
-    status: "playing",
-    result: "safe",
-    nextFloor,
-    multiplier: getMultiplier(mode, nextFloor),
-    doors: ["safe", "safe", "safe"],
-  };
+/**
+ * Tirages truqués : le nombre d'options sûres reste exact (comme le vrai tirage),
+ * seul l'ordre est figé. Le joueur qui choisit l'option 0 gagne avec `firstSafe`
+ * et perd avec `firstDanger`.
+ */
+export function firstSafe(options: number, safeOptions: number): Outcome[] {
+  return Array.from({ length: options }, (_, i) => (i < safeOptions ? "safe" : "danger"));
 }
 
-/** Tirage truqué : la porte choisie est toujours une alarme. */
-export function alwaysAlarm(_mode: GameMode, _door: number, currentFloor: number): PlayResult {
-  return {
-    status: "lost",
-    result: "alarm",
-    nextFloor: currentFloor,
-    multiplier: 0,
-    doors: ["alarm", "alarm", "alarm"],
-  };
+export function firstDanger(options: number, safeOptions: number): Outcome[] {
+  const dangers = options - safeOptions;
+  return Array.from({ length: options }, (_, i) => (i < dangers ? "danger" : "safe"));
 }
 
 /** Crée un compte et renvoie un agent supertest qui garde le cookie de session. */

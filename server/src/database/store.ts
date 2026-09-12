@@ -1,5 +1,4 @@
 import type { Db } from "./db.ts";
-import type { GameMode } from "../modules/game/game.algorithm.ts";
 
 /**
  * Couche d'accès aux données (SQLite).
@@ -24,12 +23,14 @@ export type GameRound = {
   userId: number;
   game: string;
   betCents: number;
-  mode: GameMode;
+  /** Identifiant de mode propre au jeu (« safe », « calme »…). */
+  mode: string;
   step: number;
   multiplier: number;
   status: RoundStatus;
   payoutCents: number;
   createdAt: string;
+  updatedAt: string;
 };
 
 export type TransactionType = "bet" | "win" | "loss" | "refill";
@@ -64,6 +65,7 @@ type RoundRow = {
   status: string;
   payout_cents: number;
   created_at: string;
+  updated_at: string;
 };
 
 function mapUser(r: UserRow): User {
@@ -84,12 +86,13 @@ function mapRound(r: RoundRow): GameRound {
     userId: r.user_id,
     game: r.game,
     betCents: r.bet_cents,
-    mode: r.mode as GameMode,
+    mode: r.mode,
     step: r.step,
     multiplier: r.multiplier,
     status: r.status as RoundStatus,
     payoutCents: r.payout_cents,
     createdAt: r.created_at,
+    updatedAt: r.updated_at,
   };
 }
 
@@ -186,31 +189,92 @@ export function addTransaction(db: Db, data: Transaction): void {
   ).run(data.userId, data.roundId, data.type, data.amountCents, data.balanceAfterCents);
 }
 
+// --- Historique ---
+export type HistoryRow = {
+  id: number;
+  game: string;
+  mode: string;
+  betCents: number;
+  status: RoundStatus;
+  /** Bénéfice net de la partie : gain encaissé − mise. */
+  netCents: number;
+  step: number;
+  multiplier: number;
+  createdAt: string;
+};
+
+/** Parties terminées d'un joueur, de la plus récente à la plus ancienne. */
+export function listUserRounds(
+  db: Db,
+  userId: number,
+  options: { game?: string; limit: number },
+): HistoryRow[] {
+  const filtreJeu = options.game ? "AND game = ?" : "";
+  const params: (string | number)[] = [userId];
+  if (options.game) params.push(options.game);
+  params.push(options.limit);
+
+  return db
+    .prepare(
+      `SELECT id,
+              game,
+              mode,
+              bet_cents AS betCents,
+              status,
+              payout_cents - bet_cents AS netCents,
+              step,
+              multiplier,
+              created_at AS createdAt
+         FROM rounds
+        WHERE user_id = ?
+          AND status IN ('lost', 'cashed_out')
+          ${filtreJeu}
+        ORDER BY id DESC
+        LIMIT ?`,
+    )
+    .all(...params) as HistoryRow[];
+}
+
 // --- Classement ---
 export type LeaderboardRow = {
   username: string;
-  netProfitCents: number;
-  bestPayoutCents: number;
+  /** Bénéfice net cumulé (gains encaissés − mises) sur la fenêtre. */
+  netCents: number;
   rounds: number;
+  bestPayoutCents: number;
 };
 
+/** Fenêtre glissante du classement. */
+export const LEADERBOARD_WINDOW = "-30 days";
+
 /**
- * Classement par bénéfice net (gains encaissés − mises), jamais par solde :
- * un joueur qui a beaucoup perdu ne doit pas monter grâce à une recharge.
- * Le classement par jeu et la fenêtre de 30 jours arrivent avec le moteur commun.
+ * Classement par bénéfice net sur 30 jours, jamais par solde : un joueur qui a
+ * beaucoup perdu ne doit pas monter grâce à une recharge, et un exploit d'il y
+ * a six mois ne doit pas geler le tableau. Seules les parties terminées comptent.
  */
-export function getLeaderboard(db: Db, limit = 10): LeaderboardRow[] {
+export function getLeaderboard(
+  db: Db,
+  options: { game?: string; limit: number },
+): LeaderboardRow[] {
+  const filtreJeu = options.game ? "AND r.game = ?" : "";
+  const params: (string | number)[] = [];
+  if (options.game) params.push(options.game);
+  params.push(options.limit);
+
   return db
     .prepare(
       `SELECT u.username AS username,
-              COALESCE(SUM(r.payout_cents), 0) - COALESCE(SUM(r.bet_cents), 0) AS netProfitCents,
-              COALESCE(MAX(r.payout_cents), 0) AS bestPayoutCents,
-              COUNT(r.id) AS rounds
-         FROM users u
-         LEFT JOIN rounds r ON r.user_id = u.id AND r.status IN ('lost', 'cashed_out')
+              SUM(r.payout_cents) - SUM(r.bet_cents) AS netCents,
+              COUNT(r.id) AS rounds,
+              MAX(r.payout_cents) AS bestPayoutCents
+         FROM rounds r
+         JOIN users u ON u.id = r.user_id
+        WHERE r.status IN ('lost', 'cashed_out')
+          AND r.created_at >= datetime('now', '${LEADERBOARD_WINDOW}')
+          ${filtreJeu}
         GROUP BY u.id
-        ORDER BY netProfitCents DESC, bestPayoutCents DESC
+        ORDER BY netCents DESC, bestPayoutCents DESC
         LIMIT ?`,
     )
-    .all(limit) as LeaderboardRow[];
+    .all(...params) as LeaderboardRow[];
 }

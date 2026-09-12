@@ -172,3 +172,32 @@ test("les anciennes routes sans session ont disparu", async () => {
   assert.equal((await request(app).post("/api/game/start").send({ userId: 1 })).status, 404);
   assert.equal((await request(app).get("/api/wallet/balance/1")).status, 404);
 });
+
+test("derrière un proxy TLS déclaré, une origine https sur le même hôte passe", async () => {
+  process.env.TRUSTED_PROXY_HOPS = "1";
+  const app = makeApp();
+  delete process.env.TRUSTED_PROXY_HOPS;
+
+  const res = await request(app)
+    .post("/api/auth/register")
+    .set("Host", "vault-rush.example")
+    .set("X-Forwarded-Proto", "https")
+    .set("Origin", "https://vault-rush.example")
+    .send({ username: "derriereproxy", password: "motdepasse1" });
+
+  assert.equal(res.status, 201);
+});
+
+test("sans proxy déclaré, la même requête est refusée (fermé par défaut)", async () => {
+  const app = makeApp();
+
+  const res = await request(app)
+    .post("/api/auth/register")
+    .set("Host", "vault-rush.example")
+    .set("X-Forwarded-Proto", "https")
+    .set("Origin", "https://vault-rush.example")
+    .send({ username: "sansproxy", password: "motdepasse1" });
+
+  assert.equal(res.status, 403);
+  assert.equal(res.body.error, "bad_origin");
+});

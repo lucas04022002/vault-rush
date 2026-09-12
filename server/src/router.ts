@@ -1,9 +1,9 @@
 import { Router } from "express";
 import type { AppContext } from "./context.ts";
 import { authController } from "./modules/auth/auth.controller.ts";
-import { gameController } from "./modules/game/game.controller.ts";
-import { GAME_ID } from "./modules/game/game.service.ts";
+import { gamesController } from "./modules/games/games.controller.ts";
 import { healthController } from "./modules/health/health.controller.ts";
+import { historyController } from "./modules/history/history.controller.ts";
 import { leaderboardController } from "./modules/leaderboard/leaderboard.controller.ts";
 import { walletController } from "./modules/wallet/wallet.controller.ts";
 
@@ -14,7 +14,7 @@ import { walletController } from "./modules/wallet/wallet.controller.ts";
 export function createRouter(ctx: AppContext): Router {
   const router = Router();
   const auth = authController(ctx);
-  const game = gameController(ctx);
+  const games = gamesController(ctx);
   const wallet = walletController(ctx);
 
   router.get("/health", healthController(ctx));
@@ -28,16 +28,20 @@ export function createRouter(ctx: AppContext): Router {
   router.get("/wallet", wallet.balance);
   router.post("/wallet/refill", wallet.refill);
 
+  router.get("/history", historyController(ctx));
   router.get("/leaderboard", leaderboardController(ctx));
 
-  // Un seul jeu pour l'instant ; le préfixe générique /api/games/:game arrive
-  // avec le moteur commun (tâche 2), Laser Grid avec lui.
-  const games = Router();
-  games.get("/current", game.current);
-  games.post("/start", game.start);
-  games.post("/play", game.play);
-  games.post("/cashout", game.cashout);
-  router.use(`/games/${GAME_ID}`, games);
+  // Catalogue, puis les routes de partie : un seul jeu de routes pour tous les jeux.
+  router.get("/games", games.list);
+
+  const jeu = Router({ mergeParams: true });
+  jeu.use(games.resolveGame);
+  jeu.get("/config", games.config);
+  jeu.get("/current", games.current);
+  jeu.post("/start", games.start);
+  jeu.post("/play", games.play);
+  jeu.post("/cashout", games.cashout);
+  router.use("/games/:game", jeu);
 
   return router;
 }

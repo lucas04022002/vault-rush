@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
 import type { Express } from "express";
-import { makeApp, ctxOf, signUp, alwaysSafe, alwaysAlarm } from "./helper.ts";
+import { makeApp, ctxOf, signUp, firstSafe, firstDanger } from "./helper.ts";
 
 const BASE = "/api/games/vault-rush";
 
@@ -57,7 +57,7 @@ test("un second démarrage renvoie 409 avec la partie en cours", async () => {
 });
 
 test("current renvoie la partie en cours, puis null après la fin", async () => {
-  const app = makeApp({ playFloor: alwaysAlarm });
+  const app = makeApp({ drawOptions: firstDanger });
   const { agent } = await signUp(app);
 
   assert.deepEqual((await agent.get(`${BASE}/current`)).body, { round: null });
@@ -72,7 +72,7 @@ test("current renvoie la partie en cours, puis null après la fin", async () => 
 });
 
 test("rejouer une étape déjà jouée renvoie 409 avec l'état courant (double clic sûr)", async () => {
-  const app = makeApp({ playFloor: alwaysSafe });
+  const app = makeApp({ drawOptions: firstSafe });
   const { agent } = await signUp(app);
   const { body } = await agent.post(`${BASE}/start`).send({ betCoins: 10, mode: "safe" });
   const roundId = body.round.id;
@@ -80,7 +80,7 @@ test("rejouer une étape déjà jouée renvoie 409 avec l'état courant (double 
   const premier = await agent.post(`${BASE}/play`).send({ roundId, step: 0, option: 0 });
   assert.equal(premier.status, 200);
   assert.equal(premier.body.round.step, 1);
-  assert.deepEqual(premier.body.revealed, ["safe", "safe", "safe"]);
+  assert.deepEqual(premier.body.revealed, ["safe", "safe", "danger"]);
 
   const rejeu = await agent.post(`${BASE}/play`).send({ roundId, step: 0, option: 0 });
   assert.equal(rejeu.status, 409);
@@ -116,7 +116,7 @@ test("un solde insuffisant renvoie 409 sans rien écrire", async () => {
 });
 
 test("une porte inexistante renvoie 400 sans toucher à la partie", async () => {
-  const app = makeApp({ playFloor: alwaysSafe });
+  const app = makeApp({ drawOptions: firstSafe });
   const { agent } = await signUp(app);
   const { body } = await agent.post(`${BASE}/start`).send({ betCoins: 10, mode: "safe" });
 
@@ -129,7 +129,7 @@ test("une porte inexistante renvoie 400 sans toucher à la partie", async () => 
 });
 
 test("le dernier étage réussi encaisse automatiquement", async () => {
-  const app = makeApp({ playFloor: alwaysSafe });
+  const app = makeApp({ drawOptions: firstSafe });
   const { agent } = await signUp(app);
   const { body } = await agent.post(`${BASE}/start`).send({ betCoins: 10, mode: "safe" });
   const roundId = body.round.id;
@@ -166,7 +166,7 @@ test("le dernier étage réussi encaisse automatiquement", async () => {
 });
 
 test("le gain est plafonné à 1 000 000 centimes", async () => {
-  const app = makeApp({ playFloor: alwaysSafe });
+  const app = makeApp({ drawOptions: firstSafe });
   const { agent } = await signUp(app);
   const { body } = await agent.post(`${BASE}/start`).send({ betCoins: 1000, mode: "safe" });
   const roundId = body.round.id;
@@ -182,7 +182,7 @@ test("le gain est plafonné à 1 000 000 centimes", async () => {
 });
 
 test("encaisser crédite le solde et journalise", async () => {
-  const app = makeApp({ playFloor: alwaysSafe });
+  const app = makeApp({ drawOptions: firstSafe });
   const { agent } = await signUp(app);
   const { body } = await agent.post(`${BASE}/start`).send({ betCoins: 10, mode: "safe" });
   const roundId = body.round.id;
@@ -219,7 +219,7 @@ test("encaisser avant le premier étage est refusé", async () => {
 });
 
 test("perdre clôture la partie et libère la place pour la suivante", async () => {
-  const app = makeApp({ playFloor: alwaysAlarm });
+  const app = makeApp({ drawOptions: firstDanger });
   const { agent } = await signUp(app);
   const { body } = await agent.post(`${BASE}/start`).send({ betCoins: 10, mode: "safe" });
 
@@ -230,7 +230,7 @@ test("perdre clôture la partie et libère la place pour la suivante", async () 
   assert.equal(perdu.body.round.status, "lost");
   assert.equal(perdu.body.round.payoutCents, 0);
   assert.equal(perdu.body.round.cashoutCents, 0);
-  assert.deepEqual(perdu.body.revealed, ["alarm", "alarm", "alarm"]);
+  assert.deepEqual(perdu.body.revealed, ["danger", "safe", "safe"]);
   assert.equal((await agent.get("/api/wallet")).body.balanceCents, 99000);
 
   const suivante = await agent.post(`${BASE}/start`).send({ betCoins: 10, mode: "risk" });
@@ -247,7 +247,7 @@ test("les routes de partie exigent une session", async () => {
 });
 
 test("on ne peut pas jouer la partie d'un autre joueur", async () => {
-  const app = makeApp({ playFloor: alwaysSafe });
+  const app = makeApp({ drawOptions: firstSafe });
   const a = await signUp(app, "alice");
   const b = await signUp(app, "bob");
   const { body } = await a.agent.post(`${BASE}/start`).send({ betCoins: 10, mode: "safe" });
@@ -264,4 +264,5 @@ test("un jeu inconnu renvoie 404", async () => {
   const { agent } = await signUp(app);
   const res = await agent.post("/api/games/poker/start").send({ betCoins: 10, mode: "safe" });
   assert.equal(res.status, 404);
+  assert.equal(res.body.error, "unknown_game");
 });
