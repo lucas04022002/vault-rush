@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import request from "supertest";
 import { makeApp, ctxOf, signUp } from "./helper.ts";
 
@@ -302,19 +304,25 @@ test("un JSON malformé renvoie 400, un corps trop gros 413", async () => {
 
 test("la CSP est envoyée sur l'API et sur la page en production", async () => {
   const sante = await request(makeApp()).get("/api/health");
-  assert.match(String(sante.headers["content-security-policy"]), /default-src 'self'/);
+  const csp = String(sante.headers["content-security-policy"]);
+  assert.match(csp, /default-src 'self'/);
+  assert.match(csp, /script-src 'self'/);
+  // Aucune origine tierce n'est autorisée : les polices sont auto-hébergées.
+  assert.ok(!/googleapis|gstatic/.test(csp), csp);
 
   const avant = process.env.NODE_ENV;
   process.env.NODE_ENV = "production";
   const prod = makeApp();
   process.env.NODE_ENV = avant;
 
+  // La page n'est servie que si le client a été construit : en CI, les tests
+  // passent AVANT le build, et un 404 d'Express pose sa propre CSP.
+  const construit = existsSync(fileURLToPath(new URL("../../client/dist/index.html", import.meta.url)));
   const page = await request(prod).get("/");
-  const csp = String(page.headers["content-security-policy"]);
-  assert.match(csp, /default-src 'self'/);
-  assert.match(csp, /script-src 'self'/);
-  // Aucune origine tierce n'est autorisée : les polices sont auto-hébergées.
-  assert.ok(!/googleapis|gstatic/.test(csp));
+  if (construit) {
+    assert.equal(page.status, 200);
+    assert.match(String(page.headers["content-security-policy"]), /default-src 'self'/);
+  }
 });
 
 test("les messages de saisie invalide sont en français", async () => {
