@@ -37,12 +37,27 @@ export function notFoundHandler(_req: Request, res: Response) {
   res.status(404).json({ error: "not_found" });
 }
 
+/**
+ * Erreurs posées par `express.json()` : un corps illisible ou trop gros vient du
+ * client, pas du serveur. Sans cette traduction, une requête d'un octet répond
+ * 500 et remplit le journal du VPS d'une pile complète.
+ */
+function bodyParserError(err: unknown): HttpError | null {
+  const type = (err as { type?: unknown } | null)?.type;
+  if (err instanceof SyntaxError && type === "entity.parse.failed") {
+    return new HttpError(400, "invalid_json");
+  }
+  if (type === "entity.too.large") return new HttpError(413, "payload_too_large");
+  return null;
+}
+
 /** Gestionnaire terminal : jamais de pile dans la réponse. */
 export function errorHandler(err: unknown, _req: Request, res: Response, next: NextFunction) {
   if (res.headersSent) return next(err);
 
-  if (err instanceof HttpError) {
-    res.status(err.status).json({ error: err.code, ...err.details });
+  const traduite = err instanceof HttpError ? err : bodyParserError(err);
+  if (traduite) {
+    res.status(traduite.status).json({ error: traduite.code, ...traduite.details });
     return;
   }
 

@@ -93,8 +93,9 @@ export function refill(db: Db, userId: number): RefillResult {
     if (getBalanceCents(db, userId) >= REFILL_THRESHOLD_CENTS) {
       throw new HttpError(409, "balance_too_high", { thresholdCents: REFILL_THRESHOLD_CENTS });
     }
-    if (store.refilledWithin24h(db, userId)) {
-      throw new HttpError(409, "refill_cooldown");
+    const attente = store.refillCooldownSeconds(db, userId);
+    if (attente > 0) {
+      throw new HttpError(409, "refill_cooldown", { retryAfterSeconds: attente });
     }
 
     const balanceCents = credit(db, userId, REFILL_AMOUNT_CENTS, "refill", null);

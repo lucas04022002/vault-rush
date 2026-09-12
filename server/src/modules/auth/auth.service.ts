@@ -1,4 +1,5 @@
 import type { AppContext } from "../../context.ts";
+import { withTransaction } from "../../database/db.ts";
 import * as store from "../../database/store.ts";
 import { HttpError } from "../../http/errors.ts";
 import { hashPassword, verifyPassword } from "../../auth/password.ts";
@@ -25,7 +26,21 @@ export async function register(
   if (store.getUserByUsername(ctx.db, username)) throw new HttpError(409, "username_taken");
   const hash = await hashPassword(password);
   try {
-    return toAccount(store.createUser(ctx.db, username, hash));
+    // Le solde offert est un mouvement d'argent comme un autre : il entre dans le
+    // journal, et dans la même transaction que la création du compte. Sinon,
+    // rejouer le journal depuis zéro ne retomberait jamais sur le solde réel.
+    const user = withTransaction(ctx.db, () => {
+      const created = store.createUser(ctx.db, username, hash);
+      store.addTransaction(ctx.db, {
+        userId: created.id,
+        roundId: null,
+        type: "opening",
+        amountCents: created.balanceCents,
+        balanceAfterCents: created.balanceCents,
+      });
+      return created;
+    });
+    return toAccount(user);
   } catch (err) {
     // Course entre deux inscriptions : c'est l'unicité en base qui tranche.
     if (err instanceof Error && /UNIQUE/i.test(err.message)) {

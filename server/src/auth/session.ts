@@ -15,13 +15,28 @@ type RequestWithSession = Request & { session?: SessionUser };
 
 export type SessionOptions = { secret: Uint8Array; cookieSecure: boolean };
 
-/** Pose `req.session` (ou rien) avant les routes. */
-export function sessionMiddleware(options: SessionOptions): RequestHandler {
-  return (req, _res, next) => {
+/**
+ * Pose `req.session` (ou rien) avant les routes.
+ *
+ * Un jeton peut rester valide alors que le compte n'existe plus (suppression à
+ * la main, base réinitialisée) : `accountExists` le vérifie ici, une fois pour
+ * toutes les routes. Sans ce contrôle, les routes qui écrivent partaient en
+ * violation de clé étrangère, donc en 500, au lieu du 401 attendu.
+ */
+export function sessionMiddleware(
+  options: SessionOptions,
+  accountExists: (userId: number) => boolean,
+): RequestHandler {
+  return (req, res, next) => {
     const token = (req as Request & { cookies?: Record<string, string> }).cookies?.[SESSION_COOKIE];
     verifySession(options.secret, token)
       .then((user) => {
-        if (user) (req as RequestWithSession).session = user;
+        if (user && accountExists(user.id)) {
+          (req as RequestWithSession).session = user;
+        } else if (user) {
+          // Compte disparu : on retire le cookie au lieu de le laisser rejouer.
+          clearSessionCookie(res, options);
+        }
         next();
       })
       .catch(next);

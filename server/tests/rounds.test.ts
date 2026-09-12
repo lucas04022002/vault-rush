@@ -10,6 +10,14 @@ function rows(app: Express, sql: string): any[] {
   return ctxOf(app).db.prepare(sql).all();
 }
 
+/**
+ * Le journal des mouvements de partie. La ligne « opening » (solde offert à
+ * l'inscription) est écartée ici : elle a son propre test dans auth.test.ts.
+ */
+function journal(app: Express): any[] {
+  return rows(app, "SELECT * FROM transactions WHERE type <> 'opening' ORDER BY id");
+}
+
 test("démarrer débite la mise et journalise dans la même transaction", async () => {
   const app = makeApp();
   const { agent, userId } = await signUp(app);
@@ -29,13 +37,13 @@ test("démarrer débite la mise et journalise dans la même transaction", async 
   const solde = await agent.get("/api/wallet");
   assert.equal(solde.body.balanceCents, 99000);
 
-  const journal = rows(app, "SELECT * FROM transactions ORDER BY id");
-  assert.equal(journal.length, 1);
-  assert.equal(journal[0].type, "bet");
-  assert.equal(journal[0].amount_cents, 1000);
-  assert.equal(journal[0].balance_after_cents, 99000);
-  assert.equal(journal[0].round_id, round.id);
-  assert.equal(journal[0].user_id, userId);
+  const mouvements = journal(app);
+  assert.equal(mouvements.length, 1);
+  assert.equal(mouvements[0].type, "bet");
+  assert.equal(mouvements[0].amount_cents, 1000);
+  assert.equal(mouvements[0].balance_after_cents, 99000);
+  assert.equal(mouvements[0].round_id, round.id);
+  assert.equal(mouvements[0].user_id, userId);
 });
 
 test("un second démarrage renvoie 409 avec la partie en cours", async () => {
@@ -53,7 +61,7 @@ test("un second démarrage renvoie 409 avec la partie en cours", async () => {
   // Rien n'a été débité une seconde fois.
   assert.equal((await agent.get("/api/wallet")).body.balanceCents, 99000);
   assert.equal(rows(app, "SELECT * FROM rounds").length, 1);
-  assert.equal(rows(app, "SELECT * FROM transactions").length, 1);
+  assert.equal(journal(app).length, 1);
 });
 
 test("current renvoie la partie en cours, puis null après la fin", async () => {
@@ -99,7 +107,7 @@ test("une mise de 0,001 est refusée et ne crée aucune ligne", async () => {
   assert.equal(res.status, 400);
 
   assert.equal(rows(app, "SELECT * FROM rounds").length, 0);
-  assert.equal(rows(app, "SELECT * FROM transactions").length, 0);
+  assert.equal(journal(app).length, 0);
   assert.equal((await agent.get("/api/wallet")).body.balanceCents, 100000);
 });
 
@@ -150,9 +158,9 @@ test("le dernier étage réussi encaisse automatiquement", async () => {
   assert.equal((await agent.get("/api/wallet")).body.balanceCents, 99000 + 11160);
   assert.deepEqual((await agent.get(`${BASE}/current`)).body, { round: null });
 
-  const journal = rows(app, "SELECT * FROM transactions ORDER BY id");
+  const mouvements = journal(app);
   assert.deepEqual(
-    journal.map((t) => [t.type, t.amount_cents, t.balance_after_cents]),
+    mouvements.map((t) => [t.type, t.amount_cents, t.balance_after_cents]),
     [
       ["bet", 1000, 99000],
       ["win", 11160, 110160],
@@ -196,11 +204,11 @@ test("encaisser crédite le solde et journalise", async () => {
   assert.equal(res.body.round.payoutCents, 1470);
   assert.equal(res.body.balanceCents, 99000 + 1470);
 
-  const journal = rows(app, "SELECT * FROM transactions ORDER BY id");
-  assert.equal(journal.length, 2);
-  assert.equal(journal[1].type, "win");
-  assert.equal(journal[1].amount_cents, 1470);
-  assert.equal(journal[1].balance_after_cents, 100470);
+  const mouvements = journal(app);
+  assert.equal(mouvements.length, 2);
+  assert.equal(mouvements[1].type, "win");
+  assert.equal(mouvements[1].amount_cents, 1470);
+  assert.equal(mouvements[1].balance_after_cents, 100470);
 
   // Deuxième encaissement : refusé, et le solde ne bouge plus.
   const rejeu = await agent.post(`${BASE}/cashout`).send({ roundId });

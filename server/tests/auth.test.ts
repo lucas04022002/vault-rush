@@ -201,3 +201,159 @@ test("sans proxy déclaré, la même requête est refusée (fermé par défaut)"
   assert.equal(res.status, 403);
   assert.equal(res.body.error, "bad_origin");
 });
+
+test("TRUSTED_PROXY_HOPS non entier est ignoré (0, fermé par défaut)", () => {
+  const avertissements: string[] = [];
+  const vrai = console.warn;
+  console.warn = (...args: unknown[]) => avertissements.push(args.join(" "));
+  try {
+    process.env.TRUSTED_PROXY_HOPS = "1.5";
+    const flottant = makeApp();
+    assert.equal(flottant.get("trust proxy"), false);
+
+    process.env.TRUSTED_PROXY_HOPS = "abc";
+    assert.equal(makeApp().get("trust proxy"), false);
+
+    process.env.TRUSTED_PROXY_HOPS = "-1";
+    assert.equal(makeApp().get("trust proxy"), false);
+
+    process.env.TRUSTED_PROXY_HOPS = "2";
+    assert.equal(makeApp().get("trust proxy"), 2);
+  } finally {
+    delete process.env.TRUSTED_PROXY_HOPS;
+    console.warn = vrai;
+  }
+
+  assert.equal(avertissements.length, 3, "un avertissement par valeur refusée");
+  assert.match(avertissements[0], /TRUSTED_PROXY_HOPS/);
+});
+
+test("le solde d'ouverture est journalisé : rejouer le journal donne le solde", async () => {
+  const app = makeApp();
+  const { agent, userId } = await signUp(app, "ouverture");
+
+  const journal = ctxOf(app)
+    .db.prepare("SELECT * FROM transactions WHERE user_id = ? ORDER BY id")
+    .all(userId) as any[];
+
+  assert.equal(journal.length, 1, "une seule ligne juste après l'inscription");
+  assert.equal(journal[0].type, "opening");
+  assert.equal(journal[0].amount_cents, 100000);
+  assert.equal(journal[0].balance_after_cents, 100000);
+  assert.equal(journal[0].round_id, null);
+
+  // Rejoué depuis zéro, le journal retombe exactement sur le solde affiché.
+  const signe = (t: any) => (t.type === "bet" ? -t.amount_cents : t.amount_cents);
+  const rejeu = journal.reduce((somme, t) => somme + signe(t), 0);
+  assert.equal(rejeu, (await agent.get("/api/wallet")).body.balanceCents);
+
+  // Et après une partie perdue, le rejeu suit toujours le solde.
+  await agent.post("/api/games/vault-rush/start").send({ betCoins: 10, mode: "safe" });
+  const complet = ctxOf(app)
+    .db.prepare("SELECT * FROM transactions WHERE user_id = ? ORDER BY id")
+    .all(userId) as any[];
+  assert.equal(
+    complet.reduce((somme, t) => somme + signe(t), 0),
+    (await agent.get("/api/wallet")).body.balanceCents,
+  );
+});
+
+test("un cookie valide pour un compte supprimé donne 401, pas 500", async () => {
+  const app = makeApp();
+  const { agent, userId } = await signUp(app, "disparue");
+  // Suppression à la main, comme les CGU le promettent : le compte et sa trace.
+  ctxOf(app).db.prepare("DELETE FROM transactions WHERE user_id = ?").run(userId);
+  ctxOf(app).db.prepare("DELETE FROM users WHERE id = ?").run(userId);
+
+  // Le chemin qui partait en 500 : `start` écrivait la partie avant de lire le solde.
+  const start = await agent.post("/api/games/vault-rush/start").send({ betCoins: 10, mode: "safe" });
+  assert.equal(start.status, 401);
+  assert.equal(start.body.error, "unauthorized");
+  // La session est retirée dans la foulée : le cookie renvoyé est vide.
+  const vide = (start.headers["set-cookie"] as unknown as string[] | undefined) ?? [];
+  assert.ok(
+    vide.some((c) => /^vr_session=;/.test(c)),
+    "le cookie de session est effacé",
+  );
+
+  assert.equal((await agent.get("/api/auth/me")).status, 401);
+
+  // Aucune partie n'a été créée au passage.
+  assert.equal((ctxOf(app).db.prepare("SELECT * FROM rounds").all() as any[]).length, 0);
+});
+
+test("un JSON malformé renvoie 400, un corps trop gros 413", async () => {
+  const app = makeApp();
+
+  const casse = await request(app)
+    .post("/api/auth/register")
+    .set("Content-Type", "application/json")
+    .send('{"username": "oops"');
+  assert.equal(casse.status, 400);
+  assert.equal(casse.body.error, "invalid_json");
+
+  const enorme = await request(app)
+    .post("/api/auth/register")
+    .set("Content-Type", "application/json")
+    .send(JSON.stringify({ username: "grosse", password: "x".repeat(32 * 1024) }));
+  assert.equal(enorme.status, 413);
+  assert.equal(enorme.body.error, "payload_too_large");
+});
+
+test("la CSP est envoyée sur l'API et sur la page en production", async () => {
+  const sante = await request(makeApp()).get("/api/health");
+  assert.match(String(sante.headers["content-security-policy"]), /default-src 'self'/);
+
+  const avant = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  const prod = makeApp();
+  process.env.NODE_ENV = avant;
+
+  const page = await request(prod).get("/");
+  const csp = String(page.headers["content-security-policy"]);
+  assert.match(csp, /default-src 'self'/);
+  assert.match(csp, /script-src 'self'/);
+  // Aucune origine tierce n'est autorisée : les polices sont auto-hébergées.
+  assert.ok(!/googleapis|gstatic/.test(csp));
+});
+
+test("les messages de saisie invalide sont en français", async () => {
+  const app = makeApp();
+
+  const pseudo = await request(app)
+    .post("/api/auth/register")
+    .send({ username: "pseudo-avec-tiret", password: "motdepasse1" });
+  assert.equal(pseudo.status, 400);
+  assert.equal(pseudo.body.error, "invalid_body");
+  assert.match(pseudo.body.details[0].message, /pas de tiret ni d'espace/);
+
+  const trop_long = await request(app)
+    .post("/api/auth/register")
+    .send({ username: "longue", password: "x".repeat(201) });
+  assert.equal(trop_long.status, 400);
+  assert.match(trop_long.body.details[0].message, /caractères au maximum/);
+
+  const trop_court = await request(app)
+    .post("/api/auth/register")
+    .send({ username: "courte", password: "court" });
+  assert.match(trop_court.body.details[0].message, /caractères minimum/);
+});
+
+test("la recharge refusée dit dans combien de temps réessayer", async () => {
+  const app = makeApp();
+  const { agent, userId } = await signUp(app, "rechargeuse");
+  const solde = (cents: number) =>
+    ctxOf(app).db.prepare("UPDATE users SET balance_cents = ? WHERE id = ?").run(cents, userId);
+
+  solde(100);
+  assert.equal((await agent.post("/api/wallet/refill").send({})).status, 200);
+
+  solde(100);
+  const res = await agent.post("/api/wallet/refill").send({});
+  assert.equal(res.status, 409);
+  assert.equal(res.body.error, "refill_cooldown");
+  const secondes = res.body.retryAfterSeconds;
+  assert.ok(Number.isInteger(secondes), `retryAfterSeconds entier attendu, reçu ${secondes}`);
+  // 24 h moins le temps écoulé depuis la recharge : on reste juste sous le plafond.
+  assert.ok(secondes > 23 * 3600 && secondes <= 24 * 3600, `valeur inattendue : ${secondes}`);
+});

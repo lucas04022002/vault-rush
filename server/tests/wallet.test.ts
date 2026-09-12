@@ -27,11 +27,15 @@ test("sous 10 coins, la recharge donne 1 000 coins", async () => {
   assert.equal(res.body.refilledCents, 100000);
   assert.equal(res.body.balanceCents, 100420);
 
+  // La ligne « opening » de l'inscription précède toujours le reste du journal.
   const journal = ctxOf(app).db.prepare("SELECT * FROM transactions ORDER BY id").all() as any[];
-  assert.equal(journal.length, 1);
-  assert.equal(journal[0].type, "refill");
-  assert.equal(journal[0].amount_cents, 100000);
-  assert.equal(journal[0].balance_after_cents, 100420);
+  assert.deepEqual(
+    journal.map((t) => [t.type, t.amount_cents, t.balance_after_cents]),
+    [
+      ["opening", 100000, 100000],
+      ["refill", 100000, 100420],
+    ],
+  );
 });
 
 test("à 500 coins, la recharge est refusée", async () => {

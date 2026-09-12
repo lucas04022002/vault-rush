@@ -33,7 +33,11 @@ export type GameRound = {
   updatedAt: string;
 };
 
-export type TransactionType = "bet" | "win" | "loss" | "refill";
+/**
+ * `opening` est le solde offert à la création du compte : sans cette ligne, rejouer
+ * le journal depuis zéro donnerait 1 000 coins de moins que le solde réel.
+ */
+export type TransactionType = "opening" | "bet" | "win" | "loss" | "refill";
 
 export type Transaction = {
   userId: number;
@@ -137,14 +141,22 @@ export function markRefill(db: Db, userId: number): void {
   db.prepare("UPDATE users SET last_refill_at = datetime('now') WHERE id = ?").run(userId);
 }
 
-/** Vrai si le joueur a déjà rechargé depuis moins de 24 h. */
-export function refilledWithin24h(db: Db, userId: number): boolean {
+/**
+ * Secondes restant avant la prochaine recharge gratuite, 0 si elle est déjà
+ * possible. Le client s'en sert pour annoncer l'heure au joueur plutôt qu'un
+ * « réessaie plus tard » sans horizon.
+ */
+export function refillCooldownSeconds(db: Db, userId: number): number {
   const row = db
     .prepare(
-      "SELECT 1 AS recent FROM users WHERE id = ? AND last_refill_at > datetime('now', '-24 hours')",
+      `SELECT CAST(strftime('%s', last_refill_at, '+24 hours') - strftime('%s', 'now') AS INTEGER)
+                AS secondes
+         FROM users
+        WHERE id = ? AND last_refill_at IS NOT NULL`,
     )
-    .get(userId) as { recent: number } | undefined;
-  return row !== undefined;
+    .get(userId) as { secondes: number | null } | undefined;
+  const secondes = row?.secondes ?? 0;
+  return secondes > 0 ? secondes : 0;
 }
 
 // --- Parties ---

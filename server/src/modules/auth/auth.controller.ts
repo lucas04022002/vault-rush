@@ -11,15 +11,23 @@ import type { Account } from "./auth.service.ts";
 
 /** Contrôleurs de compte : ce sont eux qui posent (ou retirent) le cookie de session. */
 
+// Les messages sont en français et affichés tels quels par le client : ils
+// doivent dire quoi corriger, pas nommer la règle qui a échoué.
 const username = z
-  .string()
+  .string({ required_error: "Pseudo manquant.", invalid_type_error: "Pseudo manquant." })
   .trim()
-  .regex(/^[a-zA-Z0-9_]{3,20}$/, "Pseudo invalide (3 à 20 caractères : lettres, chiffres, _)");
+  .regex(
+    /^[a-zA-Z0-9_]{3,20}$/,
+    "Pseudo : 3 à 20 caractères, lettres, chiffres ou _ (pas de tiret ni d'espace).",
+  );
 
 const password = z
-  .string()
-  .min(MIN_PASSWORD_LENGTH, `Mot de passe : ${MIN_PASSWORD_LENGTH} caractères minimum`)
-  .max(MAX_PASSWORD_LENGTH);
+  .string({
+    required_error: "Mot de passe manquant.",
+    invalid_type_error: "Mot de passe manquant.",
+  })
+  .min(MIN_PASSWORD_LENGTH, `Mot de passe : ${MIN_PASSWORD_LENGTH} caractères minimum.`)
+  .max(MAX_PASSWORD_LENGTH, `Mot de passe : ${MAX_PASSWORD_LENGTH} caractères au maximum.`);
 
 const credentialsSchema = z.object({ username, password });
 const setPasswordSchema = z.object({ username, newPassword: password });

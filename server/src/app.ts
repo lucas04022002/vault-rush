@@ -9,6 +9,7 @@ import { sessionMiddleware } from "./auth/session.ts";
 import type { AppContext } from "./context.ts";
 import { openDb } from "./database/db.ts";
 import { runMigrations } from "./database/migrate.ts";
+import { getUser } from "./database/store.ts";
 import { errorHandler, notFoundHandler } from "./http/errors.ts";
 import { corsForClient, originGuard } from "./http/origin.ts";
 import { drawOptions as realDrawOptions, type DrawFn } from "./engine/ladder.ts";
@@ -31,9 +32,27 @@ const LOGIN_ATTEMPTS = 10;
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const CLIENT_DIST = fileURLToPath(new URL("../../client/dist/", import.meta.url));
 
+/**
+ * Nombre de proxys de confiance devant le serveur.
+ *
+ * Tout ce qui n'est pas un entier ≥ 0 vaut 0 (fermé par défaut) : `1.5` ou
+ * `"abc"` doivent se voir au démarrage, pas se transformer en confiance floue.
+ */
+export function readProxyHops(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === "") return 0;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0) {
+    console.warn(
+      `TRUSTED_PROXY_HOPS ignoré : « ${raw} » n'est pas un entier ≥ 0, aucun proxy n'est de confiance.`,
+    );
+    return 0;
+  }
+  return value;
+}
+
 export function createApp(options: CreateAppOptions = {}): Express {
   const isProduction = process.env.NODE_ENV === "production";
-  const trustedProxyHops = Number(process.env.TRUSTED_PROXY_HOPS) || 0;
+  const trustedProxyHops = readProxyHops(process.env.TRUSTED_PROXY_HOPS);
   const ctx: AppContext = {
     db: openDb(options.dbPath),
     config: {
@@ -55,13 +74,14 @@ export function createApp(options: CreateAppOptions = {}): Express {
   // sans cette confiance déclarée, `req.protocol` reste « http » et la garde
   // d'origine refuserait toutes les mutations en production.
   if (trustedProxyHops > 0) app.set("trust proxy", trustedProxyHops);
-  // CSP désactivée tant que le client n'est pas refait (tâches 3 et 4).
-  app.use(helmet({ contentSecurityPolicy: false }));
+  // CSP par défaut de helmet : le client construit n'a ni script ni style en
+  // ligne, et ses polices sont auto-hébergées — `default-src 'self'` suffit.
+  app.use(helmet());
   if (ctx.config.clientUrl) app.use(corsForClient(ctx.config.clientUrl));
   app.use(express.json({ limit: "16kb" }));
   app.use(cookieParser());
   app.use(originGuard(ctx.config.clientUrl));
-  app.use(sessionMiddleware(ctx.config));
+  app.use(sessionMiddleware(ctx.config, (userId) => getUser(ctx.db, userId) !== undefined));
 
   app.use("/api", createRouter(ctx));
   app.use("/api", notFoundHandler);
