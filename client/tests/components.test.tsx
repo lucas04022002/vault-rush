@@ -41,6 +41,11 @@ describe("formatCoins", () => {
   it("n'invente pas de signe sans l'option", () => {
     expect(flat(formatCoins(-2500))).toBe("−25,00 coins");
   });
+
+  it("le zéro négatif reste un zéro franc", () => {
+    expect(flat(formatCoins(-0))).toBe("0,00 coins");
+    expect(flat(formatCoins(-0, { signed: true }))).toBe("+0,00 coins");
+  });
 });
 
 describe("formatMultiplier / formatPercent", () => {
@@ -254,15 +259,24 @@ describe("RewardTable", () => {
     expect(flat(within(risk).getByText(/%$/).textContent ?? "")).toBe("50 %");
   });
 
-  it("avec une mise, ajoute le gain max plafonné", () => {
+  it("avec une mise, donne le gain max par mode SOUS le tableau (jamais en colonne)", () => {
     render(<RewardTable modes={MODES} betCents={10000} maxPayoutCents={1000000} />);
-    expect(screen.getByRole("columnheader", { name: "Gain max" })).toBeInTheDocument();
-    // 100,00 coins × 61,44 = 6 144,00 coins (sous le plafond)
-    const risk = screen.getByRole("row", { name: /Risk/ });
-    expect(flat(within(risk).getByText(/6\D?144,00 coins/).textContent ?? "")).toBe("6 144,00 coins");
-    // 100,00 coins × 229,50 = 22 950,00 coins → plafonné à 10 000,00 coins
-    const insane = screen.getByRole("row", { name: /Insane/ });
-    expect(flat(within(insane).getByText(/coins/).textContent ?? "")).toBe("10 000,00 coins");
+    // La colonne la plus à droite était invisible sans défiler : plus de colonne.
+    expect(screen.queryByRole("columnheader", { name: /gain max/i })).toBeNull();
+    const lines = screen.getAllByRole("listitem").map((li) => flat(li.textContent ?? ""));
+    expect(lines).toEqual([
+      // 100,00 × 11,16 = 1 116,00
+      "Safe : gain max 1 116,00 coins avec 100,00 coins de mise",
+      // 100,00 × 61,44 = 6 144,00
+      "Risk : gain max 6 144,00 coins avec 100,00 coins de mise",
+      // 100,00 × 229,50 = 22 950,00 → plafonné
+      "Insane : gain max 10 000,00 coins avec 100,00 coins de mise (plafond atteint)",
+    ]);
+  });
+
+  it("sans mise, aucun gain max annoncé", () => {
+    render(<RewardTable modes={MODES} maxPayoutCents={1000000} />);
+    expect(screen.queryAllByRole("listitem")).toEqual([]);
   });
 
   it("rappelle le plafond en pied de tableau", () => {

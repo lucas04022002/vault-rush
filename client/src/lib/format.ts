@@ -11,7 +11,9 @@ const coins = new Intl.NumberFormat("fr-FR", {
 /** Un montant en centimes de coin → « 4 699,99 coins ». */
 export function formatCoins(cents: number, options?: { signed?: boolean }): string {
   const signed = options?.signed ?? false;
-  const value = signed ? Math.abs(cents) : cents;
+  // `-0 === 0` : ramène le zéro négatif à un zéro franc, sinon Intl écrit « -0,00 ».
+  const amount = cents === 0 ? 0 : cents;
+  const value = signed ? Math.abs(amount) : amount;
   const body = coins.format(value / 100).replace("-", MINUS);
   const sign = signed ? (cents < 0 ? MINUS : "+") : "";
   return `${sign}${body} coins`;

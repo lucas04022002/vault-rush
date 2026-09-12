@@ -56,6 +56,9 @@ describe("contraste WCAG des jetons", () => {
     ["cyan sur panneau (options, boutons secondaires)", "--cyan", "--panel"],
     ["cyan sur panneau secondaire", "--cyan", "--panel2"],
     ["alarme sur panneau", "--alarm", "--panel"],
+    // Paire la plus serrée du produit : Amount[data-tone=bad] dans un Toast.
+    ["alarme sur panneau secondaire", "--alarm", "--panel2"],
+    ["texte secondaire sur panneau secondaire (étape au repos)", "--dim", "--panel2"],
     ["vert sur panneau (bénéfice)", "--safe", "--panel"],
     ["jaune sur panneau secondaire (solde)", "--yel", "--panel2"],
     ["magenta sur panneau (étiquettes)", "--mag", "--panel"],

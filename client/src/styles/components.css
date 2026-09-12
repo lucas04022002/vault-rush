@@ -387,8 +387,29 @@
   border-bottom: 1px solid var(--line);
 }
 
-.rewardtable__max {
+.rewardtable__gains {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  list-style: none;
+  font-size: 13px;
+  color: var(--dim);
+}
+
+.rewardtable__gain-mode {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.rewardtable__gain-value {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   color: var(--yel);
+}
+
+.rewardtable__gain[data-capped] .rewardtable__gain-value {
+  color: var(--mag);
 }
 
 .rewardtable__cap {

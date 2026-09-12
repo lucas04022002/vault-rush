@@ -11,7 +11,7 @@ export type RewardMode = {
 
 export type RewardTableProps = {
   modes: RewardMode[];
-  /** Mise courante en centimes : ajoute la colonne « Gain max ». */
+  /** Mise courante en centimes : ajoute le gain max par mode sous le tableau. */
   betCents?: number;
   /** Plafond de gain par partie, en centimes. */
   maxPayoutCents: number;
@@ -45,32 +45,52 @@ export function RewardTable({ modes, betCents, maxPayoutCents }: RewardTableProp
               {columns.map((step) => (
                 <th key={step} scope="col">{`Étape ${step}`}</th>
               ))}
-              {betCents === undefined ? null : <th scope="col">Gain max</th>}
             </tr>
           </thead>
           <tbody>
-            {modes.map((mode) => {
-              const last = mode.multipliers[mode.multipliers.length - 1] ?? 1;
-              const max = Math.min(Math.round((betCents ?? 0) * last), maxPayoutCents);
-              return (
-                <tr key={mode.id}>
-                  <th scope="row">{mode.label}</th>
-                  <td>{formatPercent(mode.chancePerStep)}</td>
-                  {columns.map((step) => {
-                    const multiplier = mode.multipliers[step - 1];
-                    return (
-                      <td key={step}>{multiplier === undefined ? "—" : formatMultiplier(multiplier)}</td>
-                    );
-                  })}
-                  {betCents === undefined ? null : (
-                    <td className="rewardtable__max">{formatCoins(max)}</td>
-                  )}
-                </tr>
-              );
-            })}
+            {modes.map((mode) => (
+              <tr key={mode.id}>
+                <th scope="row">{mode.label}</th>
+                <td>{formatPercent(mode.chancePerStep)}</td>
+                {columns.map((step) => {
+                  const multiplier = mode.multipliers[step - 1];
+                  return (
+                    <td key={step}>
+                      {multiplier === undefined ? "—" : formatMultiplier(multiplier)}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
+
+      {/*
+        Le gain max vit HORS du tableau : dans le tableau il était la colonne la
+        plus à droite, donc invisible sans défiler, alors que la spec demande
+        qu'il soit lu avant de miser.
+      */}
+      {betCents === undefined ? null : (
+        <ul className="rewardtable__gains">
+          {modes.map((mode) => {
+            const last = mode.multipliers[mode.multipliers.length - 1] ?? 1;
+            const raw = Math.round(betCents * last);
+            const capped = raw > maxPayoutCents;
+            return (
+              <li key={mode.id} className="rewardtable__gain" data-capped={capped || undefined}>
+                <span className="rewardtable__gain-mode">{mode.label}</span>
+                {" : gain max "}
+                <span className="rewardtable__gain-value">
+                  {formatCoins(Math.min(raw, maxPayoutCents))}
+                </span>
+                {` avec ${formatCoins(betCents)} de mise${capped ? " (plafond atteint)" : ""}`}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
       <p className="rewardtable__cap">{`Gain plafonné à ${formatCoins(maxPayoutCents)} par partie.`}</p>
     </div>
   );
