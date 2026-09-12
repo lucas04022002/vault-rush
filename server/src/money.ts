@@ -48,8 +48,3 @@ export function toCents(input: unknown): number {
 export function fromCents(cents: number): string {
   return (cents / 100).toFixed(2);
 }
-
-/** Gain d'un encaissement : arrondi au centime puis plafonné. */
-export function payoutCentsFor(betCents: number, multiplier: number): number {
-  return Math.min(Math.round(betCents * multiplier), MAX_PAYOUT_CENTS);
-}
