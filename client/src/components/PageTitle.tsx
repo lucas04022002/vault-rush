@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 
 export type PageTitleProps = {
   eyebrow?: ReactNode;
-  /** L'accent du jeu : jaune par défaut, cyan pour Laser Grid. */
-  accent?: "yellow" | "cyan";
+  /** L'accent du jeu : jaune par défaut, une couleur par jeu ensuite. */
+  accent?: "yellow" | "cyan" | "magenta" | "orange";
   children: ReactNode;
 };
 

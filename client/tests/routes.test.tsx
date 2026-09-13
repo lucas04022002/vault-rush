@@ -14,6 +14,8 @@ describe("gardes de route", () => {
     expect(await screen.findByRole("heading", { name: "Arcade", level: 1 })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Vault Rush" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Laser Grid" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Getaway" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Bomb Squad" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Se connecter" })).toBeInTheDocument();
     expect(screen.getByText(/Coins fictifs, sans valeur\. Jeu gratuit\./)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "CGU" })).toBeInTheDocument();
@@ -73,6 +75,43 @@ describe("gardes de route", () => {
       await screen.findByRole("heading", { name: "Mentions légales", level: 1 }),
     ).toBeInTheDocument();
     expect(screen.getAllByText(/À COMPLÉTER/).length).toBeGreaterThan(2);
+  });
+});
+
+describe("règles des quatre jeux", () => {
+  const attendus = [
+    { id: "vault-rush", nom: "Vault Rush", phrase: /Chaque étage propose plusieurs portes/ },
+    { id: "laser-grid", nom: "Laser Grid", phrase: /Chaque ligne propose plusieurs cases/ },
+    { id: "getaway", nom: "Getaway", phrase: /Chaque tronçon propose plusieurs routes/ },
+    { id: "bomb-squad", nom: "Bomb Squad", phrase: /Chaque étape propose plusieurs câbles/ },
+  ];
+
+  for (const { id, nom, phrase } of attendus) {
+    it(`la page /regles/${id} est écrite depuis la config`, async () => {
+      baseApi(false).install();
+      renderApp(`/regles/${id}`);
+
+      expect(await screen.findByRole("heading", { name: nom, level: 1 })).toBeInTheDocument();
+      expect(screen.getByText(phrase)).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: `Jouer à ${nom}` })).toBeInTheDocument();
+    });
+  }
+
+  it("Bomb Squad prévient que la couleur des câbles ne dit rien", async () => {
+    baseApi(false).install();
+    renderApp("/regles/bomb-squad");
+
+    expect(await screen.findByRole("heading", { name: "Bomb Squad", level: 1 })).toBeInTheDocument();
+    expect(screen.getByText(/la couleur des câbles ne dit rien/i)).toBeInTheDocument();
+    expect(screen.getByText(/Se retirer/)).toBeInTheDocument();
+  });
+
+  it("les autres jeux n'héritent pas de la phrase sur les câbles", async () => {
+    baseApi(false).install();
+    renderApp("/regles/getaway");
+
+    expect(await screen.findByRole("heading", { name: "Getaway", level: 1 })).toBeInTheDocument();
+    expect(screen.queryByText(/la couleur des câbles ne dit rien/i)).not.toBeInTheDocument();
   });
 });
 
