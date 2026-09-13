@@ -1,6 +1,7 @@
 import { GAMES } from "./definitions.ts";
 import { createLadderEngine, drawOptions, type DrawFn } from "./ladder.ts";
 import { GAME_IDS, type EngineRegistry, type GameEngine } from "./types.ts";
+import { createVaultCodeEngine } from "./vault-code.ts";
 
 /**
  * Le registre : un moteur par jeu, et rien d'autre.
@@ -26,6 +27,7 @@ export function buildEngines(options: BuildEnginesOptions = {}): EngineRegistry 
     "laser-grid": createLadderEngine(GAMES["laser-grid"], draw),
     getaway: createLadderEngine(GAMES.getaway, draw),
     "bomb-squad": createLadderEngine(GAMES["bomb-squad"], draw),
+    "vault-code": createVaultCodeEngine(),
   };
 }
 

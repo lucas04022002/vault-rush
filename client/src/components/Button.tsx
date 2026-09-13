@@ -7,7 +7,8 @@ export type ButtonVariant =
   | "quiet"
   | "accent-cyan"
   | "accent-magenta"
-  | "accent-orange";
+  | "accent-orange"
+  | "accent-ice";
 
 export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
   variant?: ButtonVariant;

@@ -66,10 +66,13 @@ test("la config expose kind et canCashout", async () => {
   assert.equal(res.body.game.kind, "ladder");
   assert.equal(res.body.game.canCashout, true);
 
+  // Chaque jeu du catalogue annonce un genre connu, et l'encaissement en cours
+  // de partie n'appartient qu'au jeu d'échelle.
   const liste = await request(app).get("/api/games");
+  assert.ok(liste.body.games.length >= 4);
   for (const jeu of liste.body.games) {
-    assert.equal(jeu.kind, "ladder", jeu.id);
-    assert.equal(jeu.canCashout, true, jeu.id);
+    assert.ok(["ladder", "code", "drop", "cards"].includes(jeu.kind), `${jeu.id} : ${jeu.kind}`);
+    assert.equal(jeu.canCashout, jeu.kind === "ladder", jeu.id);
   }
 });
 
