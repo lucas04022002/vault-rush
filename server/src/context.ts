@@ -1,6 +1,6 @@
 import type { Db } from "./database/db.ts";
 import type { RateLimiter } from "./auth/rateLimit.ts";
-import type { DrawFn } from "./engine/ladder.ts";
+import type { EngineRegistry, Rng } from "./engine/types.ts";
 
 /**
  * Contexte de l'application : tout ce qu'une route peut avoir besoin de toucher.
@@ -21,6 +21,8 @@ export type AppContext = {
   db: Db;
   config: AppConfig;
   loginLimiter: RateLimiter;
-  /** Tirage d'une étape : le hasard du jeu, injectable pour les tests. */
-  drawOptions: DrawFn;
+  /** Les moteurs servis par cette application : un par jeu. */
+  engines: EngineRegistry;
+  /** La source d'aléa des moteurs ; injectable pour neutraliser le hasard. */
+  rng: Rng;
 };

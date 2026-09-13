@@ -47,6 +47,8 @@ const LASER_MULTIPLIERS = [1.92, 3.84, 7.68, 15.36, 30.72, 61.44, 122.88, 245.76
 
 const VAULT_CONFIG: GameConfig = {
   id: "vault-rush",
+  kind: "ladder",
+  canCashout: true,
   name: "Vault Rush",
   tagline: "Monte, choisis une porte par étage, encaisse avant l'alarme.",
   steps: 6,
@@ -75,6 +77,8 @@ const VAULT_CONFIG: GameConfig = {
 
 const LASER_CONFIG: GameConfig = {
   id: "laser-grid",
+  kind: "ladder",
+  canCashout: true,
   name: "Laser Grid",
   tagline: "Traverse la grille ligne par ligne sans toucher un laser.",
   steps: 8,
@@ -106,6 +110,8 @@ const BOMB_MULTIPLIERS = [1.92, 3.84, 7.68, 15.36];
 
 const GETAWAY_CONFIG: GameConfig = {
   id: "getaway",
+  kind: "ladder",
+  canCashout: true,
   name: "Getaway",
   tagline: "Choisis ta route à chaque tronçon, planque-toi avant le barrage.",
   steps: 5,
@@ -134,6 +140,8 @@ const GETAWAY_CONFIG: GameConfig = {
 
 const BOMB_CONFIG: GameConfig = {
   id: "bomb-squad",
+  kind: "ladder",
+  canCashout: true,
   name: "Bomb Squad",
   tagline: "Coupe un câble par étape, retire-toi avant l'explosion.",
   steps: 4,

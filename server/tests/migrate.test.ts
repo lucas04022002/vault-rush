@@ -13,12 +13,16 @@ function countMigrations(db: DatabaseSync): number {
   return row.n;
 }
 
-test("une base vide reçoit les deux migrations", () => {
+test("une base vide reçoit les trois migrations", () => {
   const db = openDb(":memory:");
   const applied = runMigrations(db);
 
-  assert.deepEqual(applied, ["0001_init.sql", "0002_cents_and_auth.sql"]);
-  assert.equal(countMigrations(db), 2);
+  assert.deepEqual(applied, [
+    "0001_init.sql",
+    "0002_cents_and_auth.sql",
+    "0003_state_json.sql",
+  ]);
+  assert.equal(countMigrations(db), 3);
 
   const users = columns(db, "users");
   assert.ok(users.includes("balance_cents"), "users.balance_cents attendue");
@@ -29,6 +33,7 @@ test("une base vide reçoit les deux migrations", () => {
   const rounds = columns(db, "rounds");
   assert.ok(rounds.includes("bet_cents") && rounds.includes("payout_cents"));
   assert.ok(rounds.includes("game") && rounds.includes("step"));
+  assert.ok(rounds.includes("state_json"), "rounds.state_json attendue");
   assert.ok(!rounds.includes("bet_amount"));
 
   const transactions = columns(db, "transactions");
@@ -42,7 +47,7 @@ test("un second appel n'applique rien", () => {
   const again = runMigrations(db);
 
   assert.deepEqual(again, []);
-  assert.equal(countMigrations(db), 2);
+  assert.equal(countMigrations(db), 3);
   db.close();
 });
 

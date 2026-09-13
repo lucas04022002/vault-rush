@@ -1,6 +1,6 @@
 import { requireUser } from "../../auth/session.ts";
 import type { AppContext } from "../../context.ts";
-import { GAMES, isGameId } from "../../engine/definitions.ts";
+import { engineFor } from "../../engine/registry.ts";
 import { listUserRounds } from "../../database/store.ts";
 import { route } from "../../http/errors.ts";
 import { parseGameFilter, parseLimit } from "../../http/validate.ts";
@@ -21,8 +21,8 @@ export function historyController(ctx: AppContext) {
 
     const rounds = listUserRounds(ctx.db, user.id, { game, limit }).map((round) => ({
       ...round,
-      // Le nombre d'étapes vient de la définition du jeu, pas de la base.
-      maxSteps: isGameId(round.game) ? GAMES[round.game].steps : round.step,
+      // Le nombre d'étapes vient du moteur du jeu, pas de la base.
+      maxSteps: engineFor(round.game, ctx.engines)?.config().steps ?? round.step,
     }));
 
     res.json({ rounds });

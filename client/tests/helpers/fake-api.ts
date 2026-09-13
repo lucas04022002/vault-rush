@@ -69,6 +69,8 @@ function jsonResponse(status: number, json: unknown): Response {
 
 export const VAULT_RUSH_CONFIG = {
   id: "vault-rush",
+  kind: "ladder",
+  canCashout: true,
   name: "Vault Rush",
   tagline: "Monte, choisis une porte par étage, encaisse avant l'alarme.",
   steps: 6,
@@ -115,6 +117,8 @@ export const VAULT_RUSH_CONFIG = {
 
 export const LASER_GRID_CONFIG = {
   id: "laser-grid",
+  kind: "ladder",
+  canCashout: true,
   name: "Laser Grid",
   tagline: "Traverse la grille ligne par ligne sans toucher un laser.",
   steps: 8,
@@ -161,6 +165,8 @@ export const LASER_GRID_CONFIG = {
 
 export const GETAWAY_CONFIG = {
   id: "getaway",
+  kind: "ladder",
+  canCashout: true,
   name: "Getaway",
   tagline: "Choisis ta route à chaque tronçon, planque-toi avant le barrage.",
   steps: 5,
@@ -207,6 +213,8 @@ export const GETAWAY_CONFIG = {
 
 export const BOMB_SQUAD_CONFIG = {
   id: "bomb-squad",
+  kind: "ladder",
+  canCashout: true,
   name: "Bomb Squad",
   tagline: "Coupe un câble par étape, retire-toi avant l'explosion.",
   steps: 4,
@@ -267,6 +275,7 @@ export function round(step: number, extra: Record<string, unknown> = {}) {
     nextMultiplier: step < 6 ? multipliers[step + 1] : null,
     cashoutCents: step === 0 ? 0 : Math.round(2500 * multiplier),
     payoutCents: 0,
+    view: { step, multiplier, revealed: null },
     createdAt: "2026-09-12 17:33:28",
     ...extra,
   };
