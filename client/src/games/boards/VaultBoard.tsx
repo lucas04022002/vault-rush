@@ -72,6 +72,7 @@ export function VaultBoard({ config, round, revealed, pending, onPick }: BoardPr
               type="button"
               className="vb-door"
               data-reveal={reveal}
+              data-open={reveal ? "true" : undefined}
               data-picked={chosen === option ? "true" : undefined}
               aria-label={
                 reveal ? `${noun} ${option} — ${revealWord(config, reveal)}` : `${noun} ${option}`
@@ -84,12 +85,21 @@ export function VaultBoard({ config, round, revealed, pending, onPick }: BoardPr
                 onPick(option);
               }}
             >
-              {/* La molette : un cercle et trois crans, dessinés en CSS. */}
-              <span className="vb-door__dial" aria-hidden="true">
-                <span className="vb-door__spokes" />
+              {/* Derrière la porte : le coffre ou l'alarme, visibles quand le battant pivote. */}
+              <span className="vb-door__inside" aria-hidden="true">
+                <span className="vb-door__loot" />
+                <span className="vb-door__word">
+                  {reveal ? revealWord(config, reveal) : ""}
+                </span>
               </span>
-              <span className="vb-door__num" aria-hidden="true">
-                {option}
+              {/* Le battant : cadre acier, molette et numéro ; il tourne sur ses gonds à gauche. */}
+              <span className="vb-door__leaf" aria-hidden="true">
+                <span className="vb-door__hinge vb-door__hinge--top" />
+                <span className="vb-door__hinge vb-door__hinge--bottom" />
+                <span className="vb-door__dial">
+                  <span className="vb-door__spokes" />
+                </span>
+                <span className="vb-door__num">{option}</span>
               </span>
             </button>
           );

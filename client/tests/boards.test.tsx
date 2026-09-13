@@ -123,6 +123,17 @@ describe("VaultBoard (portes de coffre)", () => {
     // Plus rien n'est cliquable une fois la partie finie.
     expect(piégée).toBeDisabled();
     expect(sûre).toBeDisabled();
+    // Les portes révélées s'ouvrent : le battant pivote et l'intérieur porte le mot.
+    expect(piégée).toHaveAttribute("data-open", "true");
+    expect(sûre).toHaveAttribute("data-open", "true");
+    expect(sûre.querySelector(".vb-door__word")?.textContent).toBe("coffre");
+    expect(piégée.querySelector(".vb-door__word")?.textContent).toBe("alarme");
+    // Une porte non révélée reste fermée.
+    const { unmount } = render(
+      <VaultBoard config={VAULT} round={vaultRound(2)} pending={false} onPick={() => {}} />,
+    );
+    expect(screen.getAllByRole("button", { name: "Porte 1" })[0]).not.toHaveAttribute("data-open");
+    unmount();
   });
 });
 

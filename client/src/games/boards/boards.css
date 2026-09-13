@@ -85,26 +85,21 @@
   gap: var(--sp-2);
 }
 
-/* Une porte de coffre : cadre acier, molette au centre, numéro en bas. */
+/* Une porte de coffre : un cadre (le bouton), l'intérieur derrière, et un
+   battant devant qui pivote sur ses gonds quand la porte est révélée. */
 .vb-door {
   position: relative;
-  overflow: hidden;
   min-height: 124px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--sp-2);
-  padding: var(--sp-2);
-  background: linear-gradient(180deg, var(--steel), var(--panel2));
+  padding: 0;
+  background: var(--panel);
   color: var(--text);
   border: 3px solid var(--line);
   border-radius: var(--r-option);
   cursor: pointer;
+  perspective: 520px;
   transition:
     transform var(--dur) var(--ease),
-    box-shadow var(--dur) var(--ease),
-    background-color var(--dur) var(--ease);
+    box-shadow var(--dur) var(--ease);
 }
 
 .vb-door:not([aria-disabled="true"]):hover {
@@ -114,6 +109,91 @@
 
 .vb-door[aria-disabled="true"] {
   cursor: not-allowed;
+}
+
+/* L'intérieur : sombre tant que la porte est fermée. */
+.vb-door__inside {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  border-radius: calc(var(--r-option) - 3px);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.vb-door__word {
+  font-family: var(--font-title);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Le butin : trois lingots empilés, dessinés en CSS, cachés tant que rien n'est révélé. */
+.vb-door__loot {
+  position: relative;
+  width: 44px;
+  height: 30px;
+  display: none;
+}
+
+.vb-door__loot::before,
+.vb-door__loot::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 9px;
+  border-radius: 3px;
+  background: var(--yel);
+  box-shadow: var(--glow-yel);
+}
+
+.vb-door__loot::before {
+  bottom: 0;
+}
+
+.vb-door__loot::after {
+  bottom: 11px;
+  left: 6px;
+  right: 6px;
+}
+
+/* Le battant : toute la surface, gonds à gauche. */
+.vb-door__leaf {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  border-radius: calc(var(--r-option) - 3px);
+  background: linear-gradient(180deg, var(--steel), var(--panel2));
+  box-shadow: inset 0 0 0 2px var(--line);
+  transform-origin: left center;
+  backface-visibility: hidden;
+  transition: transform 720ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.vb-door__hinge {
+  position: absolute;
+  left: 4px;
+  width: 8px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.vb-door__hinge--top {
+  top: 12px;
+}
+
+.vb-door__hinge--bottom {
+  bottom: 12px;
 }
 
 .vb-door__dial {
@@ -167,44 +247,47 @@
   outline-offset: -3px;
 }
 
-/* Porte sûre : elle s'ouvre, molette déverrouillée. */
+/* Porte révélée : le battant pivote sur ses gonds et laisse voir l'intérieur ;
+   la porte ouverte passe au-dessus de ses voisines le temps du mouvement. */
+.vb-door[data-open="true"] {
+  z-index: 1;
+}
+
+.vb-door[data-open="true"] .vb-door__leaf {
+  transform: rotateY(-108deg);
+}
+
+.vb-door[data-open="true"] .vb-door__loot {
+  display: block;
+}
+
+/* Porte sûre : molette déverrouillée, coffre plein derrière. */
 .vb-door[data-reveal="safe"] {
-  background: var(--safe);
-  color: var(--safe-ink);
   border-color: var(--safe);
   box-shadow: var(--glow-safe);
 }
 
-.vb-door[data-reveal="safe"] .vb-door__dial {
+.vb-door[data-reveal="safe"] .vb-door__inside {
   background: var(--safe);
-  border-color: var(--safe-ink);
-  box-shadow: none;
+  color: var(--safe-ink);
+}
+
+.vb-door[data-reveal="safe"] .vb-door__dial {
   transform: rotate(90deg);
 }
 
-.vb-door[data-reveal="safe"] .vb-door__spokes,
-.vb-door[data-reveal="safe"] .vb-door__spokes::before,
-.vb-door[data-reveal="safe"] .vb-door__spokes::after {
-  background: var(--safe-ink);
-}
-
-/* Porte piégée : fond alarme et gyrophare — trois éclats, puis il reste allumé. */
+/* Porte piégée : intérieur rouge, gyrophare — trois éclats, puis il reste allumé. */
 .vb-door[data-reveal="danger"] {
-  background: var(--alarm);
-  color: var(--alarm-ink);
   border-color: var(--alarm);
 }
 
-.vb-door[data-reveal="danger"] .vb-door__dial {
+.vb-door[data-reveal="danger"] .vb-door__inside {
   background: var(--alarm);
-  border-color: var(--alarm-ink);
-  box-shadow: none;
+  color: var(--alarm-ink);
 }
 
-.vb-door[data-reveal="danger"] .vb-door__spokes,
-.vb-door[data-reveal="danger"] .vb-door__spokes::before,
-.vb-door[data-reveal="danger"] .vb-door__spokes::after {
-  background: var(--alarm-ink);
+.vb-door[data-reveal="danger"] .vb-door__loot {
+  display: none;
 }
 
 .vb-door[data-reveal="danger"]::after {
@@ -213,6 +296,7 @@
   inset: 0;
   border-radius: inherit;
   box-shadow: var(--glow-alarm);
+  pointer-events: none;
   animation: vb-gyro 620ms ease-in-out 3;
 }
 
@@ -477,6 +561,14 @@
 
   .vb-door[data-reveal="danger"]::after {
     animation: none;
+  }
+
+  .vb-door__leaf {
+    transition: none;
+  }
+
+  .vb-door[data-open="true"] .vb-door__leaf {
+    display: none;
   }
 
   .vb-door:not([aria-disabled="true"]):hover {
