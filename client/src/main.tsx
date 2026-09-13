@@ -8,6 +8,7 @@ import "./styles/fonts.css";
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/components.css";
+import "./games/boards/boards.css";
 import "./styles/screens.css";
 
 // Vitrine des composants, en développement seulement : http://127.0.0.1:5173/#showcase

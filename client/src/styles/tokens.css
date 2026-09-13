@@ -15,10 +15,13 @@
   --panel: #1A1133;       /* cartes, écran de jeu */
   --panel2: #26193F;      /* surfaces secondaires, options, puces */
   --line: #3A2B5C;        /* bordures (2 px) */
+  --steel: #33265A;       /* acier des portes de coffre et des dalles d'étage */
 
   --mag: #FF3D8A;         /* accent chaud : sélection, ombre des titres */
   --mag-ink: #2A0A18;     /* texte sur magenta (AA 5,4:1) */
   --cyan: #35E5FF;        /* accent froid : marque, options, secondaire */
+  --cyan-ink: #062A31;    /* texte sur cyan (AA 10,0:1) */
+  --cyan-shadow: #12839A; /* ombre dure du bouton cyan (Laser Grid) */
   --yel: #FFD23F;         /* action principale, solde, étape courante */
   --yel-ink: #2A1B00;     /* texte sur jaune (AA 11,6:1) */
   --yel-shadow: #B58A00;  /* ombre dure du bouton principal */
@@ -39,6 +42,7 @@
   --glow-safe: 0 0 14px rgba(65, 240, 165, 0.45);
   --glow-alarm: 0 0 14px rgba(255, 77, 77, 0.55);
   --shadow-hard: 0 6px 0 var(--yel-shadow);
+  --shadow-hard-cyan: 0 6px 0 var(--cyan-shadow);
   --page-halo: radial-gradient(1200px 500px at 50% -10%, var(--bg-halo) 0%, var(--bg) 60%);
 
   /* ---- Polices ---- */

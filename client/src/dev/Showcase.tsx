@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import {
   Amount,
   Balance,
@@ -12,6 +12,8 @@ import {
   StepTrack,
   Toast,
 } from "../components/index.ts";
+import type { GameConfig, Outcome, Round } from "../api.ts";
+import { LaserBoard, VaultBoard } from "../games/boards/index.ts";
 import { formatCoins } from "../lib/format.ts";
 
 /**
@@ -39,6 +41,101 @@ const MODES = [
 
 const BETS = [100, 500, 1000, 2500, 5000, 10000];
 
+/* ---- Plateaux : deux jeux, quatre états chacun (données réalistes) ---- */
+
+const LASER_MULTIPLIERS = [1.92, 3.84, 7.68, 15.36, 30.72, 61.44, 122.88, 245.76];
+
+const VAULT_CONFIG: GameConfig = {
+  id: "vault-rush",
+  name: "Vault Rush",
+  tagline: "Monte, choisis une porte par étage, encaisse avant l'alarme.",
+  steps: 6,
+  labels: {
+    step: "étage",
+    option: "porte",
+    safe: "coffre",
+    danger: "alarme",
+    cashout: "Encaisser",
+  },
+  maxPayoutCents: 1_000_000,
+  minBetCents: 100,
+  maxBetCents: 100_000,
+  modes: [
+    {
+      id: "risk",
+      label: "Risk",
+      options: 4,
+      safeOptions: 2,
+      houseEdge: 0.04,
+      chancePerStep: 0.5,
+      multipliers: MULTIPLIERS,
+    },
+  ],
+};
+
+const LASER_CONFIG: GameConfig = {
+  id: "laser-grid",
+  name: "Laser Grid",
+  tagline: "Traverse la grille ligne par ligne sans toucher un laser.",
+  steps: 8,
+  labels: {
+    step: "ligne",
+    option: "case",
+    safe: "passage",
+    danger: "laser",
+    cashout: "Sortir",
+  },
+  maxPayoutCents: 1_000_000,
+  minBetCents: 100,
+  maxBetCents: 100_000,
+  modes: [
+    {
+      id: "tendu",
+      label: "Tendu",
+      options: 4,
+      safeOptions: 2,
+      houseEdge: 0.04,
+      chancePerStep: 0.5,
+      multipliers: LASER_MULTIPLIERS,
+    },
+  ],
+};
+
+/** Une partie figée, telle que le serveur la renvoie. */
+function fixtureRound(config: GameConfig, step: number, extra: Partial<Round> = {}): Round {
+  const multipliers = config.modes[0].multipliers;
+  const multiplier = step === 0 ? 1 : multipliers[step - 1];
+  return {
+    id: 1,
+    game: config.id,
+    mode: config.modes[0].id,
+    status: "playing",
+    step,
+    maxSteps: config.steps,
+    betCents: 2500,
+    multiplier,
+    nextMultiplier: step < config.steps ? multipliers[step] : null,
+    cashoutCents: step === 0 ? 0 : Math.round(2500 * multiplier),
+    payoutCents: 0,
+    createdAt: "2026-09-13 10:00:00",
+    ...extra,
+  };
+}
+
+const SAFE_REVEAL: Outcome[] = ["danger", "safe", "safe", "danger"];
+const DANGER_REVEAL: Outcome[] = ["danger", "safe", "safe", "safe"];
+
+/** Un plateau dans un état, avec sa légende. */
+function BoardState({ legend, children }: { legend: string; children: ReactNode }) {
+  return (
+    <div style={{ display: "grid", gap: "var(--sp-2)" }}>
+      <p className="label">{legend}</p>
+      <div className="panel">{children}</div>
+    </div>
+  );
+}
+
+
 export function Showcase() {
   const [bet, setBet] = useState(2500);
   const [mode, setMode] = useState("risk");
@@ -53,6 +150,106 @@ export function Showcase() {
       </div>
 
       <PageTitle eyebrow="Jeu 01 · 6 étages">Vault Rush</PageTitle>
+
+      <section style={{ display: "grid", gap: "var(--sp-4)" }}>
+        <p className="label">Plateau · Vault Rush — portes de coffre</p>
+
+        <BoardState legend="Avant le choix (étage 3 sur 6)">
+          <VaultBoard
+            config={VAULT_CONFIG}
+            round={fixtureRound(VAULT_CONFIG, 2)}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
+
+        <BoardState legend="Révélation : coffre trouvé">
+          <VaultBoard
+            config={VAULT_CONFIG}
+            round={fixtureRound(VAULT_CONFIG, 3)}
+            revealed={SAFE_REVEAL}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
+
+        <BoardState legend="Révélation : alarme (gyrophare)">
+          <VaultBoard
+            config={VAULT_CONFIG}
+            round={fixtureRound(VAULT_CONFIG, 2, {
+              status: "lost",
+              cashoutCents: 0,
+              payoutCents: 0,
+              nextMultiplier: null,
+            })}
+            revealed={DANGER_REVEAL}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
+
+        <BoardState legend="Fin de partie : encaissé au dernier étage">
+          <VaultBoard
+            config={VAULT_CONFIG}
+            round={fixtureRound(VAULT_CONFIG, 6, {
+              status: "cashed_out",
+              payoutCents: 153_600,
+              nextMultiplier: null,
+            })}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
+
+        <p className="label">Plateau · Laser Grid — grille laser</p>
+
+        <BoardState legend="Avant le choix (ligne 3 sur 8)">
+          <LaserBoard
+            config={LASER_CONFIG}
+            round={fixtureRound(LASER_CONFIG, 2)}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
+
+        <BoardState legend="Révélation : passage trouvé">
+          <LaserBoard
+            config={LASER_CONFIG}
+            round={fixtureRound(LASER_CONFIG, 3)}
+            revealed={SAFE_REVEAL}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
+
+        <BoardState legend="Révélation : laser touché">
+          <LaserBoard
+            config={LASER_CONFIG}
+            round={fixtureRound(LASER_CONFIG, 2, {
+              status: "lost",
+              cashoutCents: 0,
+              payoutCents: 0,
+              nextMultiplier: null,
+            })}
+            revealed={DANGER_REVEAL}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
+
+        <BoardState legend="Fin de partie : sortie atteinte">
+          <LaserBoard
+            config={LASER_CONFIG}
+            round={fixtureRound(LASER_CONFIG, 8, {
+              status: "cashed_out",
+              payoutCents: 614_400,
+              nextMultiplier: null,
+            })}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
+      </section>
 
       <section className="panel" style={{ display: "grid", gap: "var(--sp-4)" }}>
         <div style={{ display: "grid", gap: "var(--sp-2)" }}>

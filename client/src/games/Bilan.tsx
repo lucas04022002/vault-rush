@@ -1,7 +1,7 @@
 import type { GameConfig, Outcome, Round } from "../api.ts";
-import { Amount, Button, OptionGrid, StepTrack } from "../components/index.ts";
+import { Amount, Button } from "../components/index.ts";
 import { formatMultiplier } from "../lib/format.ts";
-import { capitalize, modeOf } from "./labels.ts";
+import { boardFor } from "./boards/index.ts";
 
 export type BilanProps = {
   config: GameConfig;
@@ -23,31 +23,13 @@ export function Bilan({
   onReplay,
   onChangeBet,
 }: BilanProps) {
-  const mode = modeOf(config, round.mode);
   const net = round.payoutCents - round.betCents;
+  // Le plateau du jeu reste à l'écran : on voit OÙ la partie s'est arrêtée.
+  const Board = boardFor(config.id);
 
   return (
     <section className="panel gamepanel" data-game={config.id} aria-label="Fin de partie">
-      <StepTrack
-        steps={config.steps}
-        current={round.step}
-        multipliers={mode?.multipliers ?? []}
-        status={round.status}
-      />
-
-      {revealed ? (
-        <OptionGrid
-          count={revealed.length}
-          labels={{
-            option: capitalize(config.labels.option),
-            safe: config.labels.safe,
-            danger: config.labels.danger,
-          }}
-          onPick={() => {}}
-          disabled
-          revealed={revealed}
-        />
-      ) : null}
+      <Board config={config} round={round} revealed={revealed} pending={pending} onPick={() => {}} />
 
       <table className="bilan">
         <caption>Bilan de la partie</caption>

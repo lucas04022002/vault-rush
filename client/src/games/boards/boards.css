@@ -1,0 +1,597 @@
+/*
+ * Vault Rush — les plateaux, une identité par jeu.
+ *   `.vb-*` : chambre forte (étages d'immeuble + portes à molette)
+ *   `.lb-*` : salle sécurisée (huit lignes empilées + faisceaux)
+ * Aucune couleur littérale ici : tout passe par les jetons.
+ */
+
+/* =================== Vault Rush : les étages =================== */
+
+.vb {
+  display: grid;
+  gap: var(--sp-4);
+}
+
+.vb-floors {
+  display: grid;
+  grid-template-columns: repeat(var(--vb-floors, 6), minmax(0, 1fr));
+  gap: var(--sp-1);
+  list-style: none;
+}
+
+/* Un étage : une dalle d'immeuble, plate en haut, posée sur la suivante. */
+.vb-floor {
+  min-height: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: var(--steel);
+  color: var(--dim);
+  border: 2px solid var(--line);
+  border-radius: var(--r-sm);
+  font-variant-numeric: tabular-nums;
+  transition: background-color var(--dur) var(--ease);
+}
+
+.vb-floor[data-state="done"] {
+  background: var(--safe);
+  color: var(--safe-ink);
+  border-color: var(--safe);
+}
+
+.vb-floor[data-state="now"] {
+  background: var(--yel);
+  color: var(--yel-ink);
+  border-color: var(--yel);
+  animation: vb-pulse 1.6s ease-in-out infinite;
+}
+
+.vb-floor[data-state="lost"] {
+  background: var(--alarm);
+  color: var(--alarm-ink);
+  border-color: var(--alarm);
+  box-shadow: var(--glow-alarm);
+}
+
+.vb-floor__num {
+  font-family: var(--font-title);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.vb-floor__mult {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+}
+
+@keyframes vb-pulse {
+  0%,
+  100% {
+    box-shadow: var(--glow-yel);
+  }
+  50% {
+    box-shadow: none;
+  }
+}
+
+/* =================== Vault Rush : les portes =================== */
+
+.vb-doors {
+  display: grid;
+  grid-template-columns: repeat(var(--vb-doors, 4), minmax(0, 1fr));
+  gap: var(--sp-2);
+}
+
+/* Une porte de coffre : un cadre (le bouton), l'intérieur derrière, et un
+   battant devant qui pivote sur ses gonds quand la porte est révélée. */
+.vb-door {
+  position: relative;
+  min-height: 124px;
+  padding: 0;
+  background: var(--panel);
+  color: var(--text);
+  border: 3px solid var(--line);
+  border-radius: var(--r-option);
+  cursor: pointer;
+  perspective: 520px;
+  transition:
+    transform var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+.vb-door:not([aria-disabled="true"]):hover {
+  transform: translateY(-3px);
+  box-shadow: var(--glow-cyan);
+}
+
+.vb-door[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* L'intérieur : sombre tant que la porte est fermée. */
+.vb-door__inside {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  border-radius: calc(var(--r-option) - 3px);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.vb-door__word {
+  font-family: var(--font-title);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Le butin : trois lingots empilés, dessinés en CSS, cachés tant que rien n'est révélé. */
+.vb-door__loot {
+  position: relative;
+  width: 44px;
+  height: 30px;
+  display: none;
+}
+
+.vb-door__loot::before,
+.vb-door__loot::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 9px;
+  border-radius: 3px;
+  background: var(--yel);
+  box-shadow: var(--glow-yel);
+}
+
+.vb-door__loot::before {
+  bottom: 0;
+}
+
+.vb-door__loot::after {
+  bottom: 11px;
+  left: 6px;
+  right: 6px;
+}
+
+/* Le battant : toute la surface, gonds à gauche. */
+.vb-door__leaf {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  border-radius: calc(var(--r-option) - 3px);
+  background: linear-gradient(180deg, var(--steel), var(--panel2));
+  box-shadow: inset 0 0 0 2px var(--line);
+  transform-origin: left center;
+  backface-visibility: hidden;
+  transition: transform 720ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.vb-door__hinge {
+  position: absolute;
+  left: 4px;
+  width: 8px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.vb-door__hinge--top {
+  top: 12px;
+}
+
+.vb-door__hinge--bottom {
+  bottom: 12px;
+}
+
+.vb-door__dial {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  background: var(--panel);
+  border: 3px solid var(--cyan);
+  border-radius: var(--r-pill);
+  box-shadow: var(--glow-cyan-inset);
+  transition: transform var(--dur) var(--ease);
+}
+
+/* Trois crans : la barre elle-même, plus ses deux pseudo-éléments. */
+.vb-door__spokes {
+  position: relative;
+  display: block;
+  width: 30px;
+  height: 3px;
+  background: var(--cyan);
+  border-radius: var(--r-pill);
+}
+
+.vb-door__spokes::before,
+.vb-door__spokes::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--cyan);
+  border-radius: var(--r-pill);
+}
+
+.vb-door__spokes::before {
+  transform: rotate(60deg);
+}
+
+.vb-door__spokes::after {
+  transform: rotate(120deg);
+}
+
+.vb-door__num {
+  font-family: var(--font-title);
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* La porte choisie : liseré jaune, avant même de savoir ce qu'il y a derrière. */
+.vb-door[data-picked="true"] {
+  outline: 3px solid var(--yel);
+  outline-offset: -3px;
+}
+
+/* Porte révélée : le battant pivote sur ses gonds et laisse voir l'intérieur ;
+   la porte ouverte passe au-dessus de ses voisines le temps du mouvement. */
+.vb-door[data-open="true"] {
+  z-index: 1;
+}
+
+.vb-door[data-open="true"] .vb-door__leaf {
+  transform: rotateY(-108deg);
+}
+
+.vb-door[data-open="true"] .vb-door__loot {
+  display: block;
+}
+
+/* Porte sûre : molette déverrouillée, coffre plein derrière. */
+.vb-door[data-reveal="safe"] {
+  border-color: var(--safe);
+  box-shadow: var(--glow-safe);
+}
+
+.vb-door[data-reveal="safe"] .vb-door__inside {
+  background: var(--safe);
+  color: var(--safe-ink);
+}
+
+.vb-door[data-reveal="safe"] .vb-door__dial {
+  transform: rotate(90deg);
+}
+
+/* Porte piégée : intérieur rouge, gyrophare — trois éclats, puis il reste allumé. */
+.vb-door[data-reveal="danger"] {
+  border-color: var(--alarm);
+}
+
+.vb-door[data-reveal="danger"] .vb-door__inside {
+  background: var(--alarm);
+  color: var(--alarm-ink);
+}
+
+.vb-door[data-reveal="danger"] .vb-door__loot {
+  display: none;
+}
+
+.vb-door[data-reveal="danger"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: var(--glow-alarm);
+  pointer-events: none;
+  animation: vb-gyro 620ms ease-in-out 3;
+}
+
+/* Survol et focus : la molette tourne un peu (rangée après les révélations,
+   pour que la spécificité aille en croissant). */
+.vb-door:focus-visible .vb-door__dial {
+  transform: rotate(36deg);
+}
+
+.vb-door:not([aria-disabled="true"]):hover .vb-door__dial {
+  transform: rotate(36deg);
+}
+
+@keyframes vb-gyro {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* =================== Laser Grid : la salle =================== */
+
+.lb {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.lb__counter {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.lb__mult {
+  color: var(--cyan);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* La sortie, tout en haut de la pile : elle s'allume quand la grille est franchie. */
+.lb__exit {
+  padding: 4px 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--dim);
+  border-top: 2px dashed var(--line);
+}
+
+.lb__exit[data-open="true"] {
+  color: var(--safe);
+  border-top-color: var(--safe);
+}
+
+/* Ligne 1 en bas, ligne 8 en haut : le DOM reste dans l'ordre, le CSS retourne. */
+.lb-rows {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 6px;
+  list-style: none;
+}
+
+.lb-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+}
+
+.lb-row__no {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--dim);
+  text-align: right;
+}
+
+.lb-row__cells {
+  display: grid;
+  grid-template-columns: repeat(var(--lb-cases, 4), minmax(0, 1fr));
+  gap: 6px;
+}
+
+.lb-cell {
+  position: relative;
+  min-height: 34px;
+  display: grid;
+  place-items: center;
+  background: var(--panel);
+  color: var(--dim);
+  border: 2px solid var(--line);
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  cursor: not-allowed;
+  transition:
+    transform var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+/* Lignes restantes : très sombres, plus deux émetteurs rouges en bout de ligne. */
+.lb-row[data-state="todo"] .lb-cell {
+  background: var(--bg);
+  opacity: 0.7;
+}
+
+.lb-row[data-state="todo"]::before,
+.lb-row[data-state="todo"]::after {
+  content: "";
+  position: absolute;
+  top: calc(50% - 3px);
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--alarm);
+  opacity: 0.85;
+}
+
+.lb-row[data-state="todo"]::before {
+  left: 0;
+}
+
+.lb-row[data-state="todo"]::after {
+  right: 0;
+}
+
+/* Ligne courante : cases cyan cliquables et faisceau qui balaie. */
+.lb-row[data-state="now"] .lb-cell {
+  min-height: 46px;
+  background: var(--panel2);
+  color: var(--cyan);
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan-inset);
+  font-family: var(--font-title);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.lb-row[data-state="now"] .lb-cell[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.lb-row[data-state="now"] .lb-cell:not([aria-disabled="true"]):hover {
+  transform: translateY(-2px);
+  box-shadow: var(--glow-cyan);
+}
+
+.lb-cell[data-picked="true"] {
+  outline: 3px solid var(--cyan);
+  outline-offset: -3px;
+}
+
+.lb-row__beam {
+  position: absolute;
+  left: 26px;
+  right: 8px;
+  top: calc(50% - 1px);
+  height: 2px;
+  /* Au-dessus des cases : un faisceau qui s'arrête à leur bord ne traverse rien. */
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Le balayage passe sous les numéros, pas au milieu : sinon il les rature. */
+.lb-row[data-state="now"] .lb-row__beam {
+  top: calc(50% + 10px);
+  background: repeating-linear-gradient(
+    90deg,
+    var(--cyan) 0 10px,
+    transparent 10px 22px
+  );
+  opacity: 0.75;
+  animation: lb-sweep 2.4s linear infinite;
+}
+
+.lb-row[data-state="done"] .lb-row__beam {
+  background: var(--safe);
+  opacity: 0.5;
+}
+
+.lb-row[data-state="lost"] .lb-row__beam {
+  height: 3px;
+  background: var(--alarm);
+  box-shadow: var(--glow-alarm);
+  animation: lb-flash 520ms ease-in-out 1;
+}
+
+/* Une ligne révélée n'est plus balayée : le résultat parle à sa place. */
+.lb-row[data-state="now"]:has(.lb-cell[data-reveal]) .lb-row__beam {
+  display: none;
+}
+
+@keyframes lb-sweep {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 22px 0;
+  }
+}
+
+@keyframes lb-flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.1;
+  }
+}
+
+/* Lignes franchies : sombres, traversées d'un trait vert. */
+.lb-row[data-state="done"] .lb-cell {
+  opacity: 0.8;
+}
+
+.lb-row .lb-cell[data-reveal="safe"] {
+  background: var(--safe);
+  color: var(--safe-ink);
+  border-color: var(--safe);
+  opacity: 1;
+}
+
+.lb-row .lb-cell[data-reveal="danger"] {
+  background: var(--alarm);
+  color: var(--alarm-ink);
+  border-color: var(--alarm);
+  opacity: 1;
+}
+
+/* Le faisceau rouge traverse la case piégée. */
+.lb-row .lb-cell[data-reveal="danger"]::after {
+  content: "";
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  top: calc(50% - 1px);
+  height: 3px;
+  background: var(--alarm);
+  box-shadow: var(--glow-alarm);
+}
+
+/* =================== Mouvement réduit =================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .vb-floor[data-state="now"] {
+    animation: none;
+  }
+
+  .vb-door[data-reveal="danger"]::after {
+    animation: none;
+  }
+
+  .vb-door__leaf {
+    transition: none;
+  }
+
+  .vb-door[data-open="true"] .vb-door__leaf {
+    display: none;
+  }
+
+  .vb-door:not([aria-disabled="true"]):hover {
+    transform: none;
+  }
+
+  .vb-door:focus-visible .vb-door__dial {
+    transform: none;
+  }
+
+  .lb-row[data-state="now"] .lb-row__beam {
+    animation: none;
+  }
+
+  .lb-row[data-state="lost"] .lb-row__beam {
+    animation: none;
+  }
+
+  .vb-door:not([aria-disabled="true"]):hover .vb-door__dial {
+    transform: none;
+  }
+
+  .lb-row[data-state="now"] .lb-cell:not([aria-disabled="true"]):hover {
+    transform: none;
+  }
+}
