@@ -66,6 +66,11 @@ describe("contraste WCAG des jetons", () => {
     ["vert sur panneau (bénéfice)", "--safe", "--panel"],
     ["jaune sur panneau secondaire (solde)", "--yel", "--panel2"],
     ["magenta sur panneau (étiquettes)", "--mag", "--panel"],
+    ["encre magenta sur magenta (bouton principal de Getaway)", "--mag-ink", "--mag"],
+    ["encre orange sur orange (bouton principal de Bomb Squad)", "--orange-ink", "--orange"],
+    ["orange sur panneau (gaine de câble, afficheur)", "--orange", "--panel"],
+    ["orange sur panneau secondaire", "--orange", "--panel2"],
+    ["orange sur fond (boîtier)", "--orange", "--bg"],
   ];
 
   for (const [label, fg, bg] of normal) {
@@ -80,6 +85,8 @@ describe("contraste WCAG des jetons", () => {
   const large: [string, string, string][] = [
     ["titre jaune sur fond", "--yel", "--bg"],
     ["titre cyan sur fond", "--cyan", "--bg"],
+    ["titre magenta sur fond (Getaway)", "--mag", "--bg"],
+    ["titre orange sur fond (Bomb Squad)", "--orange", "--bg"],
   ];
 
   for (const [label, fg, bg] of large) {

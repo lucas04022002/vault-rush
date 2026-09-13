@@ -32,6 +32,18 @@ const LASER_GRID_ATTENDU: Record<string, number[]> = {
   mortel: [2.35, 5.87, 14.69, 36.72, 91.8, 229.49, 573.73, 1434.33],
 };
 
+const GETAWAY_ATTENDU: Record<string, number[]> = {
+  tranquille: [1.31, 1.74, 2.32, 3.1, 4.13],
+  nerveux: [1.44, 2.16, 3.24, 4.86, 7.29],
+  cavale: [1.88, 3.76, 7.52, 15.04, 30.08],
+};
+
+const BOMB_SQUAD_ATTENDU: Record<string, number[]> = {
+  novice: [1.31, 1.74, 2.32, 3.1],
+  confirme: [1.92, 3.84, 7.68, 15.36],
+  demineur: [2.35, 5.87, 14.69, 36.72],
+};
+
 test("régression : les multiplicateurs de Vault Rush sont inchangés (3 modes x 6 étages)", () => {
   const def = GAMES["vault-rush"];
   assert.equal(def.steps, 6);
@@ -94,6 +106,89 @@ test("Laser Grid : 8 lignes, trois modes, chances et multiplicateurs attendus", 
       LASER_GRID_ATTENDU[mode.id],
       `mode ${mode.id}`,
     );
+  }
+});
+
+test("Getaway : 5 tronçons, trois modes, multiplicateurs figés", () => {
+  const def = GAMES.getaway;
+  assert.equal(def.name, "Getaway");
+  assert.equal(def.steps, 5);
+  assert.deepEqual(def.labels, {
+    step: "tronçon",
+    option: "route",
+    safe: "voie libre",
+    danger: "barrage",
+    cashout: "Se planquer",
+  });
+
+  assert.deepEqual(
+    def.modes.map((m) => ({
+      id: m.id,
+      label: m.label,
+      options: m.options,
+      safeOptions: m.safeOptions,
+      houseEdge: m.houseEdge,
+    })),
+    [
+      { id: "tranquille", label: "Tranquille", options: 4, safeOptions: 3, houseEdge: 0.02 },
+      { id: "nerveux", label: "Nerveux", options: 3, safeOptions: 2, houseEdge: 0.04 },
+      { id: "cavale", label: "Cavale", options: 4, safeOptions: 2, houseEdge: 0.06 },
+    ],
+  );
+
+  for (const mode of def.modes) {
+    const mults = buildMultipliers(mode.safeOptions, mode.options, mode.houseEdge, def.steps);
+    assert.equal(mults.length, 5);
+    assert.deepEqual(mults, GETAWAY_ATTENDU[mode.id], `mode ${mode.id}`);
+  }
+});
+
+test("Bomb Squad : 4 étapes, trois modes, multiplicateurs figés", () => {
+  const def = GAMES["bomb-squad"];
+  assert.equal(def.name, "Bomb Squad");
+  assert.equal(def.steps, 4);
+  assert.deepEqual(def.labels, {
+    step: "étape",
+    option: "câble",
+    safe: "neutralisé",
+    danger: "explosion",
+    cashout: "Se retirer",
+  });
+
+  assert.deepEqual(
+    def.modes.map((m) => ({
+      id: m.id,
+      label: m.label,
+      options: m.options,
+      safeOptions: m.safeOptions,
+      houseEdge: m.houseEdge,
+    })),
+    [
+      { id: "novice", label: "Novice", options: 4, safeOptions: 3, houseEdge: 0.02 },
+      { id: "confirme", label: "Confirmé", options: 4, safeOptions: 2, houseEdge: 0.04 },
+      { id: "demineur", label: "Démineur", options: 5, safeOptions: 2, houseEdge: 0.06 },
+    ],
+  );
+
+  for (const mode of def.modes) {
+    const mults = buildMultipliers(mode.safeOptions, mode.options, mode.houseEdge, def.steps);
+    assert.equal(mults.length, 4);
+    assert.deepEqual(mults, BOMB_SQUAD_ATTENDU[mode.id], `mode ${mode.id}`);
+  }
+});
+
+test("les quatre jeux ont des identifiants, des modes et des libellés distincts", () => {
+  const def = GAME_IDS.map((id) => GAMES[id]);
+  assert.deepEqual(
+    def.map((d) => d.id),
+    [...GAME_IDS],
+  );
+  // Deux jeux ne partagent jamais le mot de leur danger : le bilan resterait ambigu.
+  const dangers = def.map((d) => d.labels.danger);
+  assert.equal(new Set(dangers).size, dangers.length);
+  for (const d of def) {
+    assert.ok(d.tagline.length > 0, `${d.id} sans accroche`);
+    assert.equal(new Set(d.modes.map((m) => m.id)).size, d.modes.length, `${d.id}`);
   }
 });
 
@@ -205,13 +300,15 @@ test("configFor décrit le jeu pour le client", () => {
   assert.deepEqual(calme.multipliers, LASER_GRID_ATTENDU.calme);
 });
 
-test("isGameId ne reconnaît que les deux jeux livrés", () => {
+test("isGameId ne reconnaît que les quatre jeux livrés", () => {
   assert.ok(isGameId("vault-rush"));
   assert.ok(isGameId("laser-grid"));
+  assert.ok(isGameId("getaway"));
+  assert.ok(isGameId("bomb-squad"));
   assert.ok(!isGameId("poker"));
   assert.ok(!isGameId(""));
   assert.ok(!isGameId(undefined));
-  assert.deepEqual([...GAME_IDS], ["vault-rush", "laser-grid"]);
+  assert.deepEqual([...GAME_IDS], ["vault-rush", "laser-grid", "getaway", "bomb-squad"]);
 });
 
 // --- LA preuve : le VRAI hasard, mesuré ---

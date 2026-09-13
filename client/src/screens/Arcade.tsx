@@ -2,10 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { games, type GameConfig } from "../api.ts";
 import { Amount, GameCard, PageTitle, Toast } from "../components/index.ts";
+import { accentFor } from "../games/boards/index.ts";
 import { errorMessage } from "../lib/messages.ts";
-
-/** Couleur d'accent par rang dans le catalogue : elle boucle si un jeu s'ajoute. */
-const ACCENTS = ["yellow", "cyan"] as const;
 
 /** L'accueil : le catalogue des jeux, lisible sans compte. */
 export function Arcade() {
@@ -41,7 +39,7 @@ export function Arcade() {
             tag={`Jeu ${String(index + 1).padStart(2, "0")} · ${jeu.steps} ${jeu.labels.step}s`}
             title={jeu.name}
             tagline={jeu.tagline}
-            accent={ACCENTS[index % ACCENTS.length]}
+            accent={accentFor(jeu.id)}
             onPlay={() => navigate(`/jeux/${jeu.id}`)}
             onRules={() => navigate(`/regles/${jeu.id}`)}
           />

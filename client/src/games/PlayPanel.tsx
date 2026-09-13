@@ -1,8 +1,16 @@
 import type { GameConfig, Outcome, Round } from "../api.ts";
-import { Button } from "../components/index.ts";
+import { Button, type ButtonVariant } from "../components/index.ts";
 import { formatCoins } from "../lib/format.ts";
-import { accentFor, boardFor } from "./boards/index.ts";
+import { type BoardAccent, accentFor, boardFor } from "./boards/index.ts";
 import { cashoutLabel, nextCashoutCents } from "./labels.ts";
+
+/** Le bouton d'encaissement porte la couleur du jeu, pas celle de l'arcade. */
+const VARIANTE: Record<BoardAccent, ButtonVariant> = {
+  yellow: "primary",
+  cyan: "accent-cyan",
+  magenta: "accent-magenta",
+  orange: "accent-orange",
+};
 
 export type PlayPanelProps = {
   config: GameConfig;
@@ -33,7 +41,7 @@ export function PlayPanel({ config, round, revealed, pending, onPick, onCashout 
       />
 
       <Button
-        variant={accent === "cyan" ? "accent-cyan" : "primary"}
+        variant={VARIANTE[accent]}
         pending={pending}
         disabled={round.step === 0}
         onClick={onCashout}

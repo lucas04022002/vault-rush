@@ -58,6 +58,11 @@ export function Rules() {
           <li>{`Tu peux t'arrêter quand tu veux : le bouton « ${labels.cashout} » te rend la mise multipliée.`}</li>
           <li>{`Après ${steps} ${labels.step}s sans erreur, la partie s'encaisse toute seule.`}</li>
         </ol>
+        {config.id === "bomb-squad" ? (
+          <p>
+            {`Attention : la couleur des câbles ne dit rien. Elle suit leur rang à l'écran, pas leur contenu — le tirage se fait sur le serveur après ton clic.`}
+          </p>
+        ) : null}
       </section>
 
       <section className="panel" aria-label="Modes de jeu">

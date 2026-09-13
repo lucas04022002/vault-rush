@@ -98,6 +98,36 @@
   box-shadow: 0 2px 0 var(--cyan-shadow);
 }
 
+/* Accent de la cavale : le bouton principal de Getaway. */
+.btn[data-variant="accent-magenta"] {
+  background: var(--mag);
+  color: var(--mag-ink);
+  box-shadow: var(--shadow-hard-mag);
+  text-transform: uppercase;
+  font-family: var(--font-title);
+  font-size: 15px;
+}
+
+.btn[data-variant="accent-magenta"]:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--mag-shadow);
+}
+
+/* Accent du boîtier : le bouton principal de Bomb Squad. */
+.btn[data-variant="accent-orange"] {
+  background: var(--orange);
+  color: var(--orange-ink);
+  box-shadow: var(--shadow-hard-orange);
+  text-transform: uppercase;
+  font-family: var(--font-title);
+  font-size: 15px;
+}
+
+.btn[data-variant="accent-orange"]:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--orange-shadow);
+}
+
 .btn[data-variant="secondary"] {
   background: transparent;
   color: var(--cyan);
@@ -495,6 +525,16 @@
   color: var(--cyan);
 }
 
+/* Le titre magenta ne peut pas garder son ombre magenta : elle disparaîtrait. */
+.pagetitle[data-accent="magenta"] .pagetitle__h {
+  color: var(--mag);
+  text-shadow: 3px 3px 0 var(--mag-shadow);
+}
+
+.pagetitle[data-accent="orange"] .pagetitle__h {
+  color: var(--orange);
+}
+
 /* ---------------- GameCard ---------------- */
 
 .gamecard {
@@ -527,6 +567,14 @@
 
 .gamecard[data-accent="cyan"] .gamecard__title {
   color: var(--cyan);
+}
+
+.gamecard[data-accent="magenta"] .gamecard__title {
+  color: var(--mag);
+}
+
+.gamecard[data-accent="orange"] .gamecard__title {
+  color: var(--orange);
 }
 
 .gamecard__tagline {

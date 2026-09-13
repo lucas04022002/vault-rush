@@ -13,7 +13,7 @@ import {
   Toast,
 } from "../components/index.ts";
 import type { GameConfig, Outcome, Round } from "../api.ts";
-import { LaserBoard, VaultBoard } from "../games/boards/index.ts";
+import { BombBoard, GetawayBoard, LaserBoard, VaultBoard } from "../games/boards/index.ts";
 import { formatCoins } from "../lib/format.ts";
 
 /**
@@ -97,6 +97,65 @@ const LASER_CONFIG: GameConfig = {
       houseEdge: 0.04,
       chancePerStep: 0.5,
       multipliers: LASER_MULTIPLIERS,
+    },
+  ],
+};
+
+const GETAWAY_MULTIPLIERS = [1.88, 3.76, 7.52, 15.04, 30.08];
+const BOMB_MULTIPLIERS = [1.92, 3.84, 7.68, 15.36];
+
+const GETAWAY_CONFIG: GameConfig = {
+  id: "getaway",
+  name: "Getaway",
+  tagline: "Choisis ta route à chaque tronçon, planque-toi avant le barrage.",
+  steps: 5,
+  labels: {
+    step: "tronçon",
+    option: "route",
+    safe: "voie libre",
+    danger: "barrage",
+    cashout: "Se planquer",
+  },
+  maxPayoutCents: 1_000_000,
+  minBetCents: 100,
+  maxBetCents: 100_000,
+  modes: [
+    {
+      id: "cavale",
+      label: "Cavale",
+      options: 4,
+      safeOptions: 2,
+      houseEdge: 0.06,
+      chancePerStep: 0.5,
+      multipliers: GETAWAY_MULTIPLIERS,
+    },
+  ],
+};
+
+const BOMB_CONFIG: GameConfig = {
+  id: "bomb-squad",
+  name: "Bomb Squad",
+  tagline: "Coupe un câble par étape, retire-toi avant l'explosion.",
+  steps: 4,
+  labels: {
+    step: "étape",
+    option: "câble",
+    safe: "neutralisé",
+    danger: "explosion",
+    cashout: "Se retirer",
+  },
+  maxPayoutCents: 1_000_000,
+  minBetCents: 100,
+  maxBetCents: 100_000,
+  modes: [
+    {
+      id: "confirme",
+      label: "Confirmé",
+      options: 4,
+      safeOptions: 2,
+      houseEdge: 0.04,
+      chancePerStep: 0.5,
+      multipliers: BOMB_MULTIPLIERS,
     },
   ],
 };
@@ -249,6 +308,104 @@ export function Showcase() {
             onPick={() => {}}
           />
         </BoardState>
+
+        <p className="label">Plateau · Getaway — la route qui défile</p>
+
+        <BoardState legend="Avant le choix (tronçon 3 sur 5)">
+          <GetawayBoard
+            config={GETAWAY_CONFIG}
+            round={fixtureRound(GETAWAY_CONFIG, 2)}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
+
+        <BoardState legend="Révélation : voie libre">
+          <GetawayBoard
+            config={GETAWAY_CONFIG}
+            round={fixtureRound(GETAWAY_CONFIG, 3)}
+            revealed={SAFE_REVEAL}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
+
+        <BoardState legend="Révélation : barrage (jauge de poursuite au rouge)">
+          <GetawayBoard
+            config={GETAWAY_CONFIG}
+            round={fixtureRound(GETAWAY_CONFIG, 4, {
+              status: "lost",
+              cashoutCents: 0,
+              payoutCents: 0,
+              nextMultiplier: null,
+            })}
+            revealed={DANGER_REVEAL}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
+
+        <BoardState legend="Fin de partie : planqué au dernier tronçon">
+          <GetawayBoard
+            config={GETAWAY_CONFIG}
+            round={fixtureRound(GETAWAY_CONFIG, 5, {
+              status: "cashed_out",
+              payoutCents: 75_200,
+              nextMultiplier: null,
+            })}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
+
+        <p className="label">Plateau · Bomb Squad — le boîtier</p>
+
+        <BoardState legend="Avant le choix (étape 2 sur 4, afficheur « 03 »)">
+          <BombBoard
+            config={BOMB_CONFIG}
+            round={fixtureRound(BOMB_CONFIG, 1)}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
+
+        <BoardState legend="Révélation : câble neutralisé">
+          <BombBoard
+            config={BOMB_CONFIG}
+            round={fixtureRound(BOMB_CONFIG, 2)}
+            revealed={SAFE_REVEAL}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
+
+        <BoardState legend="Révélation : explosion (boîtier en rouge)">
+          <BombBoard
+            config={BOMB_CONFIG}
+            round={fixtureRound(BOMB_CONFIG, 1, {
+              status: "lost",
+              cashoutCents: 0,
+              payoutCents: 0,
+              nextMultiplier: null,
+            })}
+            revealed={DANGER_REVEAL}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
+
+        <BoardState legend="Fin de partie : retiré après la dernière étape">
+          <BombBoard
+            config={BOMB_CONFIG}
+            round={fixtureRound(BOMB_CONFIG, 4, {
+              status: "cashed_out",
+              payoutCents: 38_400,
+              nextMultiplier: null,
+            })}
+            pending={false}
+            onPick={() => {}}
+          />
+        </BoardState>
       </section>
 
       <section className="panel" style={{ display: "grid", gap: "var(--sp-4)" }}>
@@ -338,11 +495,36 @@ export function Showcase() {
           onPlay={() => {}}
           onRules={() => {}}
         />
+        <GameCard
+          tag="JEU 03 · 5 TRONÇONS"
+          title="Getaway"
+          tagline="Choisis ta route à chaque tronçon, planque-toi avant le barrage."
+          accent="magenta"
+          onPlay={() => {}}
+          onRules={() => {}}
+        />
+        <GameCard
+          tag="JEU 04 · 4 ÉTAPES"
+          title="Bomb Squad"
+          tagline="Coupe un câble par étape, retire-toi avant l'explosion."
+          accent="orange"
+          onPlay={() => {}}
+          onRules={() => {}}
+        />
       </section>
 
       <section style={{ display: "flex", gap: "var(--sp-2)", flexWrap: "wrap" }}>
         <Button variant="primary" onClick={() => {}}>
           Principal
+        </Button>
+        <Button variant="accent-cyan" onClick={() => {}}>
+          Sortir
+        </Button>
+        <Button variant="accent-magenta" onClick={() => {}}>
+          Se planquer
+        </Button>
+        <Button variant="accent-orange" onClick={() => {}}>
+          Se retirer
         </Button>
         <Button variant="secondary" onClick={() => {}}>
           Secondaire

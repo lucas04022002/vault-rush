@@ -20,7 +20,7 @@ export function nextCashoutCents(config: GameConfig, round: Round): number | nul
  * ici : « Encaisser » prend son montant en complément direct, « Sortir » a
  * besoin d'une préposition. Un verbe inconnu prend la forme directe.
  */
-const INDIRECT = new Set(["Sortir", "Partir", "Repartir"]);
+const INDIRECT = new Set(["Sortir", "Partir", "Repartir", "Se planquer", "Se retirer"]);
 
 export function cashoutLabel(verb: string, amount: string): string {
   return INDIRECT.has(verb) ? `${verb} avec ${amount}` : `${verb} ${amount}`;
