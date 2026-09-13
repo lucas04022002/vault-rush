@@ -33,6 +33,7 @@ const devinette: GameEngine<DevineState, DevineAction> = {
     tagline: "Trouve le nombre.",
     canCashout: false,
     steps: 3,
+    format: "3 essais",
     maxPayoutCents: MAX_PAYOUT_CENTS,
     minBetCents: MIN_BET_CENTS,
     maxBetCents: MAX_BET_CENTS,
@@ -75,6 +76,90 @@ test("la config expose kind et canCashout", async () => {
     // Seul un jeu d'échelle laisse encaisser en cours de partie.
     assert.equal(jeu.canCashout, jeu.kind === "ladder", jeu.id);
   }
+});
+
+test("le catalogue sert les SEPT jeux, dans l'ordre, chacun avec son format", async () => {
+  const app = makeApp();
+  const { body } = await request(app).get("/api/games");
+
+  assert.deepEqual(
+    body.games.map((jeu: { id: string }) => jeu.id),
+    [
+      "vault-rush",
+      "laser-grid",
+      "getaway",
+      "bomb-squad",
+      "vault-code",
+      "diamond-drop",
+      "blackjack-express",
+    ],
+  );
+
+  // Le format est écrit par le jeu et part tel quel : l'arcade ne devine
+  // aucun pluriel (« 1 lâchers » venait de là).
+  assert.deepEqual(
+    body.games.map((jeu: { format: string }) => jeu.format),
+    [
+      "6 étages",
+      "8 lignes",
+      "5 tronçons",
+      "4 étapes",
+      "4 chiffres, 5 à 7 essais",
+      "8 à 16 rangées",
+      "contre le croupier",
+    ],
+  );
+
+  // Et chaque jeu du catalogue en porte un non vide, quel que soit son genre.
+  for (const jeu of body.games) {
+    assert.equal(typeof jeu.format, "string", jeu.id);
+    assert.ok(jeu.format.length > 0, jeu.id);
+  }
+});
+
+test("l'historique et le classement acceptent les sept jeux", async () => {
+  const app = makeApp();
+  const { agent } = await signUp(app);
+  const { body } = await request(app).get("/api/games");
+
+  for (const jeu of body.games) {
+    const histoire = await agent.get(`/api/history?game=${jeu.id}`);
+    assert.equal(histoire.status, 200, `${jeu.id} historique`);
+    const classement = await request(app).get(`/api/leaderboard?game=${jeu.id}`);
+    assert.equal(classement.status, 200, `${jeu.id} classement`);
+  }
+
+  // Un jeu inconnu reste refusé : le filtre n'est pas devenu permissif.
+  assert.equal((await agent.get("/api/history?game=poker")).status, 404);
+});
+
+test("le nombre d'étapes affiché est celui du MODE, pas du jeu", async () => {
+  const app = makeApp();
+  const { agent } = await signUp(app);
+
+  // Vault Code : 7 essais en Confort, 5 en Sec. La config annonce le maximum…
+  const config = await request(app).get("/api/games/vault-code/config");
+  assert.equal(config.body.game.steps, 7);
+  assert.deepEqual(
+    config.body.game.modes.map((m: { id: string; steps: number }) => [m.id, m.steps]),
+    [
+      ["confort", 7],
+      ["tendu", 6],
+      ["sec", 5],
+    ],
+  );
+
+  // … mais une partie en mode Sec dit « sur 5 », pas « sur 7 ».
+  const sec = await agent
+    .post("/api/games/vault-code/start")
+    .send({ betCoins: 10, mode: "sec" });
+  assert.equal(sec.body.round.maxSteps, 5);
+
+  // Un jeu dont tous les modes ont la même longueur garde celle du jeu.
+  const echelle = await agent
+    .post("/api/games/vault-rush/start")
+    .send({ betCoins: 10, mode: "safe" });
+  assert.equal(echelle.body.round.maxSteps, 6);
 });
 
 test("une partie porte sa vue publique", async () => {

@@ -145,6 +145,9 @@ export function dropConfig(): DropConfig {
     canCashout: false,
     // Une seule action par partie : le lâcher.
     steps: 1,
+    format: `${Math.min(...DROP_MODES.map((m) => m.rows))} à ${Math.max(
+      ...DROP_MODES.map((m) => m.rows),
+    )} rangées`,
     maxPayoutCents: MAX_PAYOUT_CENTS,
     minBetCents: MIN_BET_CENTS,
     maxBetCents: MAX_BET_CENTS,

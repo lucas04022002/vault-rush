@@ -228,6 +228,7 @@ export function createBlackjackEngine(): GameEngine<BlackjackState, BlackjackAct
       tagline,
       canCashout: false,
       steps: COUPS_MAX,
+      format: "contre le croupier",
       maxPayoutCents: MAX_PAYOUT_CENTS,
       minBetCents: MIN_BET_CENTS,
       maxBetCents: MAX_BET_CENTS,

@@ -65,8 +65,15 @@ export type EngineResult<S> = {
   reveal?: unknown;
 };
 
-/** Un mode de jeu, vu du client : le minimum commun à tous les jeux. */
-export type GameModeDTO = { id: string; label: string };
+/**
+ * Un mode de jeu, vu du client : le minimum commun à tous les jeux.
+ *
+ * `steps` n'est là que pour les jeux dont les modes n'ont PAS le même nombre de
+ * coups (Vault Code donne 5, 6 ou 7 essais selon le mode) : il prime alors sur
+ * le `steps` de la config, qui reste le maximum du jeu. Un jeu dont tous les
+ * modes ont la même longueur ne le porte pas.
+ */
+export type GameModeDTO = { id: string; label: string; steps?: number };
 
 /**
  * Tout ce qu'il faut afficher AVANT de miser. Un jeu peut ajouter ses propres
@@ -82,6 +89,12 @@ export type GameConfigDTO = {
   canCashout: boolean;
   /** Nombre maximum de coups d'une partie (étapes, essais, mains). */
   steps: number;
+  /**
+   * Le format du jeu, écrit PAR LE JEU, tel quel : « 6 étages », « 8 lignes »,
+   * « 4 chiffres, 5 à 7 essais », « contre le croupier ». L'arcade l'affiche
+   * sans y toucher — aucun pluriel n'est deviné à partir de `steps`.
+   */
+  format: string;
   maxPayoutCents: number;
   minBetCents: number;
   maxBetCents: number;
@@ -151,3 +164,13 @@ export interface GameEngine<S = unknown, A = unknown> {
 
 /** Le registre : un moteur par identifiant de jeu. */
 export type EngineRegistry = Readonly<Record<string, GameEngine>>;
+
+/**
+ * Le nombre de coups d'une partie DANS SON MODE : le `steps` du mode s'il en
+ * porte un (Vault Code), sinon celui du jeu. C'est ce nombre que l'historique
+ * et le bilan affichent : « 3 sur 5 » en mode Sec, pas « 3 sur 7 ».
+ */
+export function maxStepsFor(engine: GameEngine, modeId: string): number {
+  const config = engine.config();
+  return config.modes.find((mode) => mode.id === modeId)?.steps ?? config.steps;
+}

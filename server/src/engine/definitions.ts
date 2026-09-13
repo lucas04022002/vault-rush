@@ -26,6 +26,7 @@ export const GAMES: Record<LadderGameId, GameDefinition<LadderGameId>> = {
     name: "Vault Rush",
     tagline: "Monte, choisis une porte par étage, encaisse avant l'alarme.",
     steps: 6,
+    format: "6 étages",
     labels: {
       step: "étage",
       option: "porte",
@@ -44,6 +45,7 @@ export const GAMES: Record<LadderGameId, GameDefinition<LadderGameId>> = {
     name: "Laser Grid",
     tagline: "Traverse la grille ligne par ligne sans toucher un laser.",
     steps: 8,
+    format: "8 lignes",
     labels: {
       step: "ligne",
       option: "case",
@@ -62,6 +64,7 @@ export const GAMES: Record<LadderGameId, GameDefinition<LadderGameId>> = {
     name: "Getaway",
     tagline: "Choisis ta route à chaque tronçon, planque-toi avant le barrage.",
     steps: 5,
+    format: "5 tronçons",
     labels: {
       step: "tronçon",
       option: "route",
@@ -80,6 +83,7 @@ export const GAMES: Record<LadderGameId, GameDefinition<LadderGameId>> = {
     name: "Bomb Squad",
     tagline: "Coupe un câble par étape, retire-toi avant l'explosion.",
     steps: 4,
+    format: "4 étapes",
     labels: {
       step: "étape",
       option: "câble",

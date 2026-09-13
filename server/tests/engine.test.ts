@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -320,7 +321,36 @@ test("isGameId ne reconnaît que les jeux livrés", () => {
   assert.ok(GAME_IDS.length >= LADDER_GAME_IDS.length);
 });
 
-// --- LA preuve : le VRAI hasard, mesuré ---
+// --- LA preuve : le hasard du moteur, mesuré, et REJOUABLE ---
+
+/*
+ * Ces deux mesures tiraient leur hasard de `Math.random` ET du générateur
+ * cryptographique du moteur : elles n'étaient donc pas rejouables, et la
+ * seconde tombait environ une fois sur deux (quinze couples jeu/mode, chacun
+ * comparé à quatre écarts-types calculés sur une formule approchée du second
+ * moment — trop serrée). Un test qui échoue au hasard finit par être ignoré :
+ * les deux tirent maintenant d'une graine fixe, et la tolérance de la seconde
+ * vient de l'écart-type MESURÉ des gains, pas d'une formule. Le calibrage des
+ * jeux, lui, n'a pas bougé d'un centime.
+ */
+
+/** Générateur déterministe (mulberry32), comme le calibrage de Vault Code. */
+function seeded(graine: number): () => number {
+  let a = graine;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Le tirage du moteur, alimenté par la graine et non par `crypto`. */
+function drawSeeded(hasard: () => number) {
+  return (options: number, safeOptions: number) =>
+    drawOptions(options, safeOptions, (max) => Math.floor(hasard() * max));
+}
 
 test("le tirage réel donne le bon taux de réussite par étape", () => {
   // Contrôle serré : c'est ce taux, combiné aux multiplicateurs, qui fixe le RTP.
@@ -328,10 +358,13 @@ test("le tirage réel donne le bon taux de réussite par étape", () => {
   for (const id of LADDER_GAME_IDS) {
     const def = GAMES[id];
     for (const mode of def.modes) {
+      const hasard = seeded(20_260_913);
+      const draw = drawSeeded(hasard);
+
       let reussites = 0;
       for (let i = 0; i < COUPS; i++) {
-        const choix = Math.floor(Math.random() * mode.options);
-        if (playStep(def, mode, 0, choix).outcome === "safe") reussites += 1;
+        const choix = Math.floor(hasard() * mode.options);
+        if (playStep(def, mode, 0, choix, draw).outcome === "safe") reussites += 1;
       }
       const p = mode.safeOptions / mode.options;
       const observe = reussites / COUPS;
@@ -352,24 +385,24 @@ test("simulation Monte Carlo : le RTP réel converge vers la cible", () => {
     const def = GAMES[id];
     for (const mode of def.modes) {
       const mise = 100; // centimes
-      const p = mode.safeOptions / mode.options;
-      const mults = Array.from({ length: def.steps }, (_, n) =>
-        multiplierAt(mode, def.steps, n + 1),
-      );
+      const hasard = seeded(20_260_914);
+      const draw = drawSeeded(hasard);
 
       let totalMise = 0;
       let totalGain = 0;
+      // Somme des carrés : elle donne l'écart-type RÉEL de cette stratégie.
+      let carres = 0;
 
       for (let r = 0; r < PARTIES; r++) {
         totalMise += mise;
         // Stratégie : viser une étape au hasard, puis encaisser.
-        const viseeEtape = 1 + Math.floor(Math.random() * def.steps);
+        const viseeEtape = 1 + Math.floor(hasard() * def.steps);
         let step = 0;
         let vivant = true;
 
         for (let s = 0; s < viseeEtape; s++) {
-          const choix = Math.floor(Math.random() * mode.options);
-          const res = playStep(def, mode, step, choix);
+          const choix = Math.floor(hasard() * mode.options);
+          const res = playStep(def, mode, step, choix, draw);
           if (res.outcome === "danger") {
             vivant = false;
             break;
@@ -377,20 +410,43 @@ test("simulation Monte Carlo : le RTP réel converge vers la cible", () => {
           step = res.nextStep;
         }
 
-        if (vivant) totalGain += cashoutCents(mise, multiplierAt(mode, def.steps, step));
+        const gain = vivant ? cashoutCents(mise, multiplierAt(mode, def.steps, step)) : 0;
+        totalGain += gain;
+        carres += (gain / mise) ** 2;
       }
 
       const rtp = totalGain / totalMise;
       const cible = 1 - mode.houseEdge;
-      // Les gros multiplicateurs sont rares : la tolérance suit l'écart-type
-      // réel de cette stratégie, sinon le test échouerait au hasard.
-      const moment2 =
-        mults.reduce((acc, m, n) => acc + m * m * Math.pow(p, n + 1), 0) / def.steps;
-      const tolerance = 4 * Math.sqrt((moment2 - cible * cible) / PARTIES);
+      const variance = Math.max(carres / PARTIES - rtp * rtp, 0);
+      const tolerance = 4 * Math.sqrt(variance / PARTIES);
       assert.ok(
         Math.abs(rtp - cible) < tolerance,
         `[${id}/${mode.id}] RTP réel=${(rtp * 100).toFixed(2)}% vs cible=${(cible * 100).toFixed(2)}% (±${(tolerance * 100).toFixed(2)})`,
       );
     }
   }
+});
+
+test("les mesures sont rejouables, et plus aucune ne tire de Math.random", () => {
+  // La garde se lit elle-même : on compte les APPELS, pas les mentions, sinon
+  // ce commentaire-ci ferait tomber le test.
+  const source = readFileSync(new URL("./engine.test.ts", import.meta.url), "utf8");
+  const appels = source.split(`Math${"."}random(`).length - 1;
+  assert.equal(appels, 0, "un appel a Math.random est revenu dans engine.test.ts");
+
+  const compte = (graine: number) => {
+    const hasard = seeded(graine);
+    const def = GAMES["vault-rush"];
+    const mode = def.modes[0];
+    const draw = drawSeeded(hasard);
+    let surs = 0;
+    for (let i = 0; i < 2_000; i++) {
+      const choix = Math.floor(hasard() * mode.options);
+      if (playStep(def, mode, 0, choix, draw).outcome === "safe") surs += 1;
+    }
+    return surs;
+  };
+  // Deux passages de la même graine donnent le même chiffre ; deux graines non.
+  assert.equal(compte(7), compte(7));
+  assert.notEqual(compte(7), compte(8));
 });

@@ -133,8 +133,12 @@ export function vaultCodeConfig(): GameConfigDTO {
     name: "Vault Code",
     tagline: "Trouve la combinaison du coffre avant d'épuiser tes essais.",
     canCashout: false,
-    // Le plus grand nombre d'essais des trois modes : chaque mode porte le sien.
+    // Le plus grand nombre d'essais des trois modes : chaque mode porte le sien
+    // (`modes[].steps`), et c'est LUI qui compte pour une partie donnée.
     steps: Math.max(...MODES_VAULT_CODE.map((m) => m.essais)),
+    format: `${CODE_LENGTH} chiffres, ${Math.min(...MODES_VAULT_CODE.map((m) => m.essais))} à ${Math.max(
+      ...MODES_VAULT_CODE.map((m) => m.essais),
+    )} essais`,
     digits: CODE_LENGTH,
     labels: {
       step: "essai",
@@ -149,6 +153,8 @@ export function vaultCodeConfig(): GameConfigDTO {
     modes: MODES_VAULT_CODE.map((mode) => ({
       id: mode.id,
       label: mode.label,
+      // Le mode porte SA longueur : « 3 sur 5 » en Sec, « 3 sur 7 » en Confort.
+      steps: mode.essais,
       essais: mode.essais,
       options: DIGITS,
       safeOptions: CODE_LENGTH,

@@ -50,6 +50,8 @@ export type GameDefinition<Id extends string = string> = {
   tagline: string;
   /** Nombre d'étapes à franchir avant l'encaissement automatique. */
   steps: number;
+  /** Le format annoncé dans l'arcade, écrit à la main : « 6 étages ». */
+  format: string;
   labels: GameLabels;
   modes: ModeDefinition[];
 };
@@ -188,6 +190,7 @@ export type GameConfig = {
   canCashout: true;
   tagline: string;
   steps: number;
+  format: string;
   labels: GameLabels;
   maxPayoutCents: number;
   minBetCents: number;
@@ -204,6 +207,7 @@ export function configFor(def: GameDefinition): GameConfig {
     name: def.name,
     tagline: def.tagline,
     steps: def.steps,
+    format: def.format,
     labels: def.labels,
     maxPayoutCents: MAX_PAYOUT_CENTS,
     minBetCents: MIN_BET_CENTS,

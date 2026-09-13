@@ -3,7 +3,12 @@ import type { SessionUser } from "../../auth/session.ts";
 import { withTransaction } from "../../database/db.ts";
 import * as store from "../../database/store.ts";
 import type { GameRound } from "../../database/store.ts";
-import { EngineError, type EngineResult, type GameEngine } from "../../engine/types.ts";
+import {
+  EngineError,
+  type EngineResult,
+  type GameEngine,
+  maxStepsFor,
+} from "../../engine/types.ts";
 import { HttpError } from "../../http/errors.ts";
 import { payoutFor, toCents } from "../../money.ts";
 import * as wallet from "../wallet/wallet.service.ts";
@@ -86,7 +91,8 @@ export function toRoundDto(engine: GameEngine, round: GameRound): RoundDto {
     mode: round.mode,
     status: round.status,
     step: round.step,
-    maxSteps: engine.config().steps,
+    // Le mode peut être plus court que le jeu (Vault Code : 5 essais en Sec).
+    maxSteps: maxStepsFor(engine, round.mode),
     betCents: round.betCents,
     multiplier: round.multiplier,
     nextMultiplier: enCours ? (engine.nextMultiplier?.(state) ?? null) : null,
