@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import type { GameConfig, GameKind } from "../api.ts";
 import { LadderScreen } from "./LadderScreen.tsx";
+import { VaultCodeScreen } from "./VaultCodeScreen.tsx";
 
 /**
  * Le registre des écrans : le GENRE du jeu (`config.kind`, donné par le
@@ -18,5 +19,6 @@ export type GameScreen = (props: GameScreenProps) => ReactElement | null;
 
 export const SCREENS: Partial<Record<GameKind, GameScreen>> = {
   ladder: LadderScreen,
-  // code : Vault Code · drop : Diamond Drop · cards : Blackjack Express
+  code: VaultCodeScreen,
+  // drop : Diamond Drop · cards : Blackjack Express
 };

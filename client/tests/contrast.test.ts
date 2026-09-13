@@ -71,6 +71,8 @@ describe("contraste WCAG des jetons", () => {
     ["orange sur panneau (gaine de câble, afficheur)", "--orange", "--panel"],
     ["orange sur panneau secondaire", "--orange", "--panel2"],
     ["orange sur fond (boîtier)", "--orange", "--bg"],
+    ["glace sur panneau (afficheur et verrous de Vault Code)", "--ice", "--panel"],
+    ["encre glace sur glace (pavé numérique de Vault Code)", "--ice-ink", "--ice"],
   ];
 
   for (const [label, fg, bg] of normal) {
@@ -87,6 +89,7 @@ describe("contraste WCAG des jetons", () => {
     ["titre cyan sur fond", "--cyan", "--bg"],
     ["titre magenta sur fond (Getaway)", "--mag", "--bg"],
     ["titre orange sur fond (Bomb Squad)", "--orange", "--bg"],
+    ["titre glace sur fond (Vault Code)", "--ice", "--bg"],
   ];
 
   for (const [label, fg, bg] of large) {

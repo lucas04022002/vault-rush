@@ -10,13 +10,20 @@ import {
   playStep,
   type Outcome,
 } from "../src/engine/ladder.ts";
-import { GAMES, GAME_IDS, isGameId } from "../src/engine/definitions.ts";
+import { GAMES, GAME_IDS, isGameId, type LadderGameId } from "../src/engine/definitions.ts";
 import { MAX_PAYOUT_CENTS } from "../src/money.ts";
 
 /**
  * Moteur « jeu d'échelle », testé sans HTTP ni base : des fonctions pures,
  * plus le tirage (le seul endroit où le hasard entre).
  */
+
+/**
+ * Les jeux servis par CE moteur. `GAME_IDS` liste tous les jeux, genres
+ * confondus (Vault Code n'est pas une échelle) : les boucles de ce fichier
+ * parcourent donc `GAMES`, pas `GAME_IDS`.
+ */
+const LADDER_IDS = Object.keys(GAMES) as LadderGameId[];
 
 // Valeurs produites par l'ancien game.algorithm.ts (Number(x.toFixed(2))) :
 // la refonte ne doit rien changer aux gains de Vault Rush.
@@ -60,7 +67,7 @@ test("régression : les multiplicateurs de Vault Rush sont inchangés (3 modes x
 });
 
 test("buildMultipliers garde le même avantage de la maison à chaque étape", () => {
-  for (const id of GAME_IDS) {
+  for (const id of LADDER_IDS) {
     const def = GAMES[id];
     for (const mode of def.modes) {
       const p = mode.safeOptions / mode.options;
@@ -178,10 +185,10 @@ test("Bomb Squad : 4 étapes, trois modes, multiplicateurs figés", () => {
 });
 
 test("les quatre jeux ont des identifiants, des modes et des libellés distincts", () => {
-  const def = GAME_IDS.map((id) => GAMES[id]);
+  const def = LADDER_IDS.map((id) => GAMES[id]);
   assert.deepEqual(
     def.map((d) => d.id),
-    [...GAME_IDS],
+    [...LADDER_IDS],
   );
   // Deux jeux ne partagent jamais le mot de leur danger : le bilan resterait ambigu.
   const dangers = def.map((d) => d.labels.danger);
@@ -194,7 +201,7 @@ test("les quatre jeux ont des identifiants, des modes et des libellés distincts
 
 test("drawOptions tire exactement le bon nombre de cases sûres, à une place variable", () => {
   const TIRAGES = 10_000;
-  for (const id of GAME_IDS) {
+  for (const id of LADDER_IDS) {
     const def = GAMES[id];
     for (const mode of def.modes) {
       let sures = 0;
@@ -308,7 +315,11 @@ test("isGameId ne reconnaît que les quatre jeux livrés", () => {
   assert.ok(!isGameId("poker"));
   assert.ok(!isGameId(""));
   assert.ok(!isGameId(undefined));
-  assert.deepEqual([...GAME_IDS], ["vault-rush", "laser-grid", "getaway", "bomb-squad"]);
+  assert.ok(isGameId("vault-code"));
+  assert.deepEqual(
+    [...GAME_IDS].slice(0, 4),
+    ["vault-rush", "laser-grid", "getaway", "bomb-squad"],
+  );
 });
 
 // --- LA preuve : le VRAI hasard, mesuré ---
@@ -316,7 +327,7 @@ test("isGameId ne reconnaît que les quatre jeux livrés", () => {
 test("le tirage réel donne le bon taux de réussite par étape", () => {
   // Contrôle serré : c'est ce taux, combiné aux multiplicateurs, qui fixe le RTP.
   const COUPS = 50_000;
-  for (const id of GAME_IDS) {
+  for (const id of LADDER_IDS) {
     const def = GAMES[id];
     for (const mode of def.modes) {
       let reussites = 0;
@@ -339,7 +350,7 @@ test("le tirage réel donne le bon taux de réussite par étape", () => {
 test("simulation Monte Carlo : le RTP réel converge vers la cible", () => {
   const PARTIES = 200_000;
 
-  for (const id of GAME_IDS) {
+  for (const id of LADDER_IDS) {
     const def = GAMES[id];
     for (const mode of def.modes) {
       const mise = 100; // centimes

@@ -10,6 +10,7 @@ const VARIANTE: Record<BoardAccent, ButtonVariant> = {
   cyan: "accent-cyan",
   magenta: "accent-magenta",
   orange: "accent-orange",
+  ice: "accent-ice",
 };
 
 export type PlayPanelProps = {

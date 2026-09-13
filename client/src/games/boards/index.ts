@@ -11,7 +11,7 @@ import { VaultBoard } from "./VaultBoard.tsx";
  * les portes plutôt que de ne rien afficher.
  */
 
-export type BoardAccent = "yellow" | "cyan" | "magenta" | "orange";
+export type BoardAccent = "yellow" | "cyan" | "magenta" | "orange" | "ice";
 
 const BOARDS: Record<string, ComponentType<BoardProps>> = {
   "vault-rush": VaultBoard,
@@ -25,6 +25,7 @@ const ACCENTS: Record<string, BoardAccent> = {
   "laser-grid": "cyan",
   getaway: "magenta",
   "bomb-squad": "orange",
+  "vault-code": "ice",
 };
 
 export function boardFor(gameId: string): ComponentType<BoardProps> {
