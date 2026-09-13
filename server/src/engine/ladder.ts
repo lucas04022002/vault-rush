@@ -1,5 +1,14 @@
 import { randomInt } from "node:crypto";
-import { MAX_BET_CENTS, MAX_PAYOUT_CENTS, MIN_BET_CENTS } from "../money.ts";
+import { z } from "zod";
+import { MAX_BET_CENTS, MAX_PAYOUT_CENTS, MIN_BET_CENTS, payoutFor } from "../money.ts";
+import {
+  EngineError,
+  type EngineResult,
+  type GameEngine,
+  type GameId,
+  type LegacyRound,
+  type Rng,
+} from "./types.ts";
 
 /**
  * Moteur « jeu d'échelle ».
@@ -48,8 +57,12 @@ export type GameDefinition<Id extends string = string> = {
 /** Tirage d'un entier dans [0, max[ ; `crypto.randomInt` par défaut. */
 export type RandomInt = (max: number) => number;
 
-/** Tirage d'une étape ; injectable pour neutraliser le hasard en test. */
-export type DrawFn = (options: number, safeOptions: number) => Outcome[];
+/**
+ * Tirage d'une étape ; injectable pour neutraliser le hasard en test.
+ * Le troisième argument est la source d'aléa du moteur : les tirages truqués
+ * des tests l'ignorent, le vrai tirage s'en sert.
+ */
+export type DrawFn = (options: number, safeOptions: number, random?: RandomInt) => Outcome[];
 
 /** Arrondi au centième, identique à l'ancien `Number(x.toFixed(2))`. */
 function round2(value: number): number {
@@ -152,7 +165,7 @@ export function playStep(
 
 /** Gain d'un encaissement : arrondi au centime, puis plafonné. */
 export function cashoutCents(betCents: number, multiplier: number): number {
-  return Math.min(Math.round(betCents * multiplier), MAX_PAYOUT_CENTS);
+  return payoutFor(betCents, multiplier);
 }
 
 export type ModeConfig = {
@@ -168,7 +181,11 @@ export type ModeConfig = {
 
 export type GameConfig = {
   id: string;
+  /** Toujours « ladder » ici : ce fichier ne fabrique que des jeux d'échelle. */
+  kind: "ladder";
   name: string;
+  /** Toujours vrai : un jeu d'échelle laisse encaisser à chaque étape. */
+  canCashout: true;
   tagline: string;
   steps: number;
   labels: GameLabels;
@@ -182,6 +199,8 @@ export type GameConfig = {
 export function configFor(def: GameDefinition): GameConfig {
   return {
     id: def.id,
+    kind: "ladder",
+    canCashout: true,
     name: def.name,
     tagline: def.tagline,
     steps: def.steps,
@@ -198,5 +217,121 @@ export function configFor(def: GameDefinition): GameConfig {
       chancePerStep: mode.safeOptions / mode.options,
       multipliers: [...multipliersOf(mode, def.steps)],
     })),
+  };
+}
+
+/* ------------------------- Le moteur, façon GameEngine ------------------------- */
+
+/**
+ * L'état secret d'une partie d'échelle. Il n'a rien de secret, justement : le
+ * tirage n'a lieu qu'au moment du coup, il n'y a donc rien à cacher d'avance.
+ * `mode` en fait partie pour que `act` se suffise à lui-même.
+ */
+export type LadderState = {
+  mode: string;
+  step: number;
+  multiplier: number;
+  /** Les options du DERNIER coup joué (déjà montrées au joueur). */
+  revealed?: Outcome[];
+};
+
+export type LadderAction = { option: number };
+
+/** `{ option }` : le champ propre au jeu d'échelle, en plus de `{ roundId, step }`. */
+export const ladderActionSchema = z.object({ option: z.number().int() });
+
+/**
+ * Fabrique le moteur d'un jeu d'échelle. `draw` est le tirage : le vrai par
+ * défaut, truqué dans les tests — c'est le seul endroit où le hasard entre.
+ */
+export function createLadderEngine(
+  def: GameDefinition<GameId>,
+  draw: DrawFn = drawOptions,
+): GameEngine<LadderState, LadderAction> {
+  /** Le mode de la partie, ou le refus : une partie héritée peut porter un mode inconnu. */
+  function modeOf(state: LadderState): ModeDefinition {
+    const mode = findMode(def, state.mode);
+    if (!mode) {
+      throw new EngineError(400, "unknown_mode", { modes: def.modes.map((m) => m.id) });
+    }
+    return mode;
+  }
+
+  return {
+    id: def.id,
+    kind: "ladder",
+    name: def.name,
+    tagline: def.tagline,
+    canCashout: true,
+    actionSchema: ladderActionSchema,
+
+    config: () => configFor(def),
+
+    start: (modeId: string) => ({ mode: modeId, step: 0, multiplier: 1 }),
+
+    view: (state: LadderState) => ({
+      step: state.step,
+      multiplier: state.multiplier,
+      revealed: state.revealed ?? null,
+    }),
+
+    act(state: LadderState, action: LadderAction, rng: Rng): EngineResult<LadderState> {
+      const mode = modeOf(state);
+      if (action.option < 0 || action.option >= mode.options) {
+        throw new EngineError(400, "invalid_option", { options: mode.options });
+      }
+
+      const result = playStep(def, mode, state.step, action.option, (options, safeOptions) =>
+        draw(options, safeOptions, (max) => rng.int(max)),
+      );
+
+      if (result.outcome === "danger") {
+        // La partie s'arrête : l'étape et le multiplicateur ACQUIS ne bougent plus.
+        return {
+          state: { ...state, revealed: result.revealed },
+          step: state.step,
+          multiplier: state.multiplier,
+          status: "lost",
+          reveal: { revealed: result.revealed, outcome: result.outcome },
+        };
+      }
+
+      const next: LadderState = {
+        ...state,
+        step: result.nextStep,
+        multiplier: result.multiplier,
+        revealed: result.revealed,
+      };
+      return {
+        state: next,
+        step: next.step,
+        multiplier: next.multiplier,
+        // Dernière étape franchie : la partie s'encaisse toute seule.
+        status: next.step >= def.steps ? "cashed_out" : "playing",
+        reveal: { revealed: result.revealed, outcome: result.outcome },
+      };
+    },
+
+    cashout(state: LadderState): EngineResult<LadderState> {
+      if (state.step === 0) throw new EngineError(409, "nothing_to_cashout");
+      return {
+        state,
+        step: state.step,
+        multiplier: state.multiplier,
+        status: "cashed_out",
+      };
+    },
+
+    nextMultiplier(state: LadderState): number | null {
+      const mode = findMode(def, state.mode);
+      if (!mode || state.step >= def.steps) return null;
+      return multiplierAt(mode, def.steps, state.step + 1);
+    },
+
+    restore: (round: LegacyRound): LadderState => ({
+      mode: round.mode,
+      step: round.step,
+      multiplier: round.multiplier,
+    }),
   };
 }

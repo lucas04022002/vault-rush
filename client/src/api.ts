@@ -66,6 +66,8 @@ export async function api<T>(path: string, init: ApiInit = {}): Promise<T> {
 
 export type Outcome = "safe" | "danger";
 export type RoundStatus = "playing" | "lost" | "cashed_out";
+/** Le genre d'un jeu : il choisit l'écran (voir `screens/Game.tsx`). */
+export type GameKind = "ladder" | "code" | "drop" | "cards";
 
 export type GameLabels = {
   step: string;
@@ -87,8 +89,11 @@ export type GameMode = {
 
 export type GameConfig = {
   id: string;
+  kind: GameKind;
   name: string;
   tagline: string;
+  /** Faux quand le jeu n'a pas d'encaissement en cours de partie. */
+  canCashout: boolean;
   steps: number;
   labels: GameLabels;
   maxPayoutCents: number;
@@ -109,6 +114,11 @@ export type Round = {
   nextMultiplier: number | null;
   cashoutCents: number;
   payoutCents: number;
+  /**
+   * L'état PUBLIC du jeu, tel que son moteur accepte de le montrer. Absent
+   * d'une partie fabriquée par le client (aperçu, test de plateau).
+   */
+  view?: unknown;
   createdAt: string;
   finishedAt?: string;
 };

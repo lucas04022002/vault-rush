@@ -1,16 +1,26 @@
 import type { GameDefinition } from "./ladder.ts";
+import type { GameId } from "./types.ts";
 
 /**
- * Catalogue des jeux. Un jeu n'est qu'un jeu de paramètres du moteur
- * (`engine/ladder.ts`) : ajouter un jeu ne demande aucune route ni aucun
- * écran supplémentaire.
+ * Les paramètres des jeux d'ÉCHELLE. Un jeu d'échelle n'est qu'un jeu de
+ * paramètres du moteur (`engine/ladder.ts`) : ajouter un décor ne demande ni
+ * route, ni écran, ni moteur supplémentaire.
+ *
+ * Les identifiants de jeux (tous genres confondus) vivent dans `types.ts`,
+ * et les moteurs sont assemblés dans `registry.ts`.
  */
 
-export const GAME_IDS = ["vault-rush", "laser-grid", "getaway", "bomb-squad"] as const;
+// Réexportés ici pour les appelants historiques : la source reste `types.ts`.
+export { GAME_IDS, isGameId } from "./types.ts";
+export type { GameId } from "./types.ts";
 
-export type GameId = (typeof GAME_IDS)[number];
+/** Les identifiants des jeux servis par le moteur d'échelle. */
+export type LadderGameId = Extract<
+  GameId,
+  "vault-rush" | "laser-grid" | "getaway" | "bomb-squad"
+>;
 
-export const GAMES: Record<GameId, GameDefinition<GameId>> = {
+export const GAMES: Record<LadderGameId, GameDefinition<LadderGameId>> = {
   "vault-rush": {
     id: "vault-rush",
     name: "Vault Rush",
@@ -85,12 +95,5 @@ export const GAMES: Record<GameId, GameDefinition<GameId>> = {
   },
 };
 
-/** Vrai si `value` est l'identifiant d'un jeu existant. */
-export function isGameId(value: unknown): value is GameId {
-  return typeof value === "string" && (GAME_IDS as readonly string[]).includes(value);
-}
-
-/** Les jeux dans l'ordre d'affichage de l'arcade. */
-export function allGames(): GameDefinition<GameId>[] {
-  return GAME_IDS.map((id) => GAMES[id]);
-}
+/** Les identifiants des jeux d'échelle, dans l'ordre d'affichage. */
+export const LADDER_GAME_IDS = Object.keys(GAMES) as LadderGameId[];

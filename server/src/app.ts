@@ -12,7 +12,9 @@ import { runMigrations } from "./database/migrate.ts";
 import { getUser } from "./database/store.ts";
 import { errorHandler, notFoundHandler } from "./http/errors.ts";
 import { corsForClient, originGuard } from "./http/origin.ts";
-import { drawOptions as realDrawOptions, type DrawFn } from "./engine/ladder.ts";
+import type { DrawFn } from "./engine/ladder.ts";
+import { registryWith } from "./engine/registry.ts";
+import { cryptoRng, type EngineRegistry, type Rng } from "./engine/types.ts";
 import { createRouter } from "./router.ts";
 
 /**
@@ -24,8 +26,12 @@ import { createRouter } from "./router.ts";
 
 export type CreateAppOptions = {
   dbPath?: string;
-  /** Tirage d'une étape ; les tests l'injectent pour neutraliser le hasard. */
+  /** Tirage d'une étape d'échelle ; les tests l'injectent pour neutraliser le hasard. */
   drawOptions?: DrawFn;
+  /** Source d'aléa des moteurs ; les tests l'injectent pour figer un tirage. */
+  rng?: Rng;
+  /** Moteurs supplémentaires (ou remplacements) : un test y met son moteur factice. */
+  engines?: EngineRegistry;
 };
 
 const LOGIN_ATTEMPTS = 10;
@@ -63,7 +69,8 @@ export function createApp(options: CreateAppOptions = {}): Express {
       isProduction,
     },
     loginLimiter: createRateLimiter({ max: LOGIN_ATTEMPTS, windowMs: LOGIN_WINDOW_MS }),
-    drawOptions: options.drawOptions ?? realDrawOptions,
+    engines: registryWith(options.engines, options.drawOptions),
+    rng: options.rng ?? cryptoRng,
   };
   runMigrations(ctx.db);
 

@@ -44,6 +44,14 @@ export function toCents(input: unknown): number {
   return cents;
 }
 
+/**
+ * Gain d'une partie : mise × multiplicateur, arrondi au centime puis plafonné.
+ * Un seul endroit décide du plafond, quel que soit le jeu.
+ */
+export function payoutFor(betCents: number, multiplier: number): number {
+  return Math.min(Math.round(betCents * multiplier), MAX_PAYOUT_CENTS);
+}
+
 /** Affichage brut à deux décimales (le formatage fr-FR est l'affaire du client). */
 export function fromCents(cents: number): string {
   return (cents / 100).toFixed(2);
