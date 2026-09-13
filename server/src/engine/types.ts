@@ -27,6 +27,7 @@ export const GAME_IDS = [
   "bomb-squad",
   "vault-code",
   "diamond-drop",
+  "blackjack-express",
 ] as const;
 
 export type GameId = (typeof GAME_IDS)[number];

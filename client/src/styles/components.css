@@ -133,6 +133,13 @@
   background: var(--ice);
   color: var(--ice-ink);
   box-shadow: var(--shadow-hard-ice);
+}
+
+/* Accent du tapis : le bouton principal de Blackjack Express. */
+.btn[data-variant="accent-felt"] {
+  background: var(--felt);
+  color: var(--felt-ink);
+  box-shadow: var(--shadow-hard-felt);
   text-transform: uppercase;
   font-family: var(--font-title);
   font-size: 15px;
@@ -156,6 +163,11 @@
 .btn[data-variant="accent-gem"]:not(:disabled):active {
   transform: translateY(4px);
   box-shadow: 0 2px 0 var(--gem-shadow);
+}
+
+.btn[data-variant="accent-felt"]:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--felt-shadow);
 }
 
 .btn[data-variant="secondary"] {
@@ -573,6 +585,10 @@
   color: var(--gem);
 }
 
+.pagetitle[data-accent="felt"] .pagetitle__h {
+  color: var(--felt);
+}
+
 /* ---------------- GameCard ---------------- */
 
 .gamecard {
@@ -621,6 +637,10 @@
 
 .gamecard[data-accent="gem"] .gamecard__title {
   color: var(--gem);
+}
+
+.gamecard[data-accent="felt"] .gamecard__title {
+  color: var(--felt);
 }
 
 .gamecard__tagline {

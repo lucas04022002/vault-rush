@@ -1,3 +1,4 @@
+import { createBlackjackEngine } from "./blackjack.ts";
 import { GAMES } from "./definitions.ts";
 import { createDropEngine } from "./drop.ts";
 import { createLadderEngine, drawOptions, type DrawFn } from "./ladder.ts";
@@ -30,6 +31,7 @@ export function buildEngines(options: BuildEnginesOptions = {}): EngineRegistry 
     "bomb-squad": createLadderEngine(GAMES["bomb-squad"], draw),
     "vault-code": createVaultCodeEngine(),
     "diamond-drop": createDropEngine(),
+    "blackjack-express": createBlackjackEngine(),
   };
 }
 

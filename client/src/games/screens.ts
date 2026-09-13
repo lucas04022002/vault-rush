@@ -1,5 +1,7 @@
 import type { ReactElement } from "react";
 import type { GameConfig, GameKind } from "../api.ts";
+import { BlackjackRules } from "./BlackjackRules.tsx";
+import { BlackjackScreen } from "./BlackjackScreen.tsx";
 import { DiamondDropRules } from "./DiamondDropRules.tsx";
 import { DiamondDropScreen } from "./DiamondDropScreen.tsx";
 import { LadderScreen } from "./LadderScreen.tsx";
@@ -24,7 +26,7 @@ export const SCREENS: Partial<Record<GameKind, GameScreen>> = {
   ladder: LadderScreen,
   code: VaultCodeScreen,
   drop: DiamondDropScreen,
-  // cards : Blackjack Express
+  cards: BlackjackScreen,
 };
 
 /**
@@ -37,4 +39,5 @@ export type RulesScreen = (props: { config: GameConfig }) => ReactElement | null
 export const RULES: Partial<Record<GameKind, RulesScreen>> = {
   code: VaultCodeRules,
   drop: DiamondDropRules,
+  cards: BlackjackRules,
 };

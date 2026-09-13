@@ -307,15 +307,12 @@ test("configFor décrit le jeu pour le client", () => {
 });
 
 test("isGameId ne reconnaît que les jeux livrés", () => {
-  assert.ok(isGameId("vault-rush"));
-  assert.ok(isGameId("laser-grid"));
-  assert.ok(isGameId("getaway"));
-  assert.ok(isGameId("bomb-squad"));
+  for (const id of GAME_IDS) assert.ok(isGameId(id), id);
   assert.ok(!isGameId("poker"));
   assert.ok(!isGameId(""));
   assert.ok(!isGameId(undefined));
-  assert.ok(isGameId("diamond-drop"));
-  // Les jeux d'échelle restent les quatre premiers ; les autres genres s'ajoutent après.
+  // Les jeux d'échelle sont les quatre premiers ; les autres genres ont leur
+  // propre moteur et n'ont pas de définition ici.
   assert.deepEqual(
     [...LADDER_GAME_IDS],
     ["vault-rush", "laser-grid", "getaway", "bomb-squad"],

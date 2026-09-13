@@ -1,0 +1,215 @@
+/*
+ * Blackjack Express — la table du croupier.
+ *   `.bj-table`  : le drap vert, croupier en haut, joueur en bas
+ *   `.bj-carte`  : une carte DESSINÉE (rang aux coins, enseigne au centre)
+ * Aucune couleur littérale ici : tout passe par les jetons de `tokens.css`.
+ */
+
+.bj {
+  --bj-carte-l: 62px;
+  --bj-carte-h: 90px;
+}
+
+.bj-table {
+  display: grid;
+  gap: var(--sp-5);
+  padding: var(--sp-4);
+  background: var(--felt-table);
+  border: 2px solid var(--felt-shadow);
+  border-radius: var(--r-card);
+}
+
+.bj-rangee {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.bj-rangee__tete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.bj-rangee__qui {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* Le total : la seule chose qu'on lit du coin de l'œil pendant la manche. */
+.bj-rangee__total {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  color: var(--felt);
+}
+
+/* Une main dépassée se lit en clair : la couleur seule ne dirait rien. */
+.bj-rangee__total[data-brulee] {
+  color: var(--text);
+}
+
+.bj-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  min-height: var(--bj-carte-h);
+}
+
+/* ---------------- Une carte ---------------- */
+
+.bj-carte {
+  position: relative;
+  display: block;
+  width: var(--bj-carte-l);
+  height: var(--bj-carte-h);
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card-face);
+  color: var(--card-ink);
+  box-shadow: var(--shadow-hard-felt);
+  /* La carte arrive de la pioche, l'une après l'autre. */
+  animation: bj-donne var(--dur) var(--ease) backwards;
+  animation-delay: calc(var(--bj-carte, 0) * 70ms);
+}
+
+.bj-carte[data-teinte="rouge"] {
+  color: var(--card-red);
+}
+
+/* Le dos : pas de rang, pas d'enseigne, un motif qui ne dit rien. */
+.bj-carte[data-face="dos"] {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--card-back) 0 5px,
+    var(--mag) 5px 7px,
+    var(--card-back) 7px 12px
+  );
+  border-color: var(--mag-shadow);
+}
+
+.bj-carte__coin {
+  position: absolute;
+  top: 5px;
+  left: 6px;
+  display: grid;
+  justify-items: center;
+  line-height: 1;
+}
+
+.bj-carte__coin--bas {
+  top: auto;
+  left: auto;
+  right: 6px;
+  bottom: 5px;
+  transform: rotate(180deg);
+}
+
+.bj-carte__rang {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.bj-carte__pip {
+  font-size: 11px;
+}
+
+.bj-carte__centre {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  line-height: 1;
+}
+
+/*
+ * La carte du croupier se retourne quand la manche se termine.
+ * Pas de `backwards` ici, volontairement : si l'animation ne part pas (moteur
+ * qui fige les transitions, capture, onglet en arrière-plan), la carte reste
+ * LISIBLE au lieu d'être coincée de profil, donc invisible.
+ */
+.bj-rangee[data-camp="croupier"] .bj-carte:nth-child(n + 2) {
+  animation: bj-retourne 320ms var(--ease);
+}
+
+/* ---------------- Actions et résultat ---------------- */
+
+.bj-actions {
+  display: grid;
+  gap: var(--sp-3);
+  grid-template-columns: 1fr 1fr;
+}
+
+.bj-resultat {
+  font-family: var(--font-title);
+  font-size: 28px;
+  text-align: center;
+  color: var(--felt);
+}
+
+.bj-resultat[data-issue="egalite"] {
+  color: var(--text);
+}
+
+.bj-resultat[data-issue="perdu"] {
+  color: var(--alarm);
+}
+
+.bj-resultat[data-issue="blackjack"] {
+  text-shadow: 3px 3px 0 var(--felt-shadow);
+}
+
+.bj-gains__detail {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--dim);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+@media (max-width: 380px) {
+  .bj {
+    --bj-carte-l: 52px;
+    --bj-carte-h: 76px;
+  }
+
+  .bj-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@keyframes bj-donne {
+  from {
+    opacity: 0;
+    transform: translate(18px, -26px) rotate(8deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes bj-retourne {
+  from {
+    transform: rotateY(90deg);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* Personne ne doit subir le mouvement : la donne devient immédiate. */
+@media (prefers-reduced-motion: reduce) {
+  .bj-carte,
+  .bj-rangee[data-camp="croupier"] .bj-carte:nth-child(n + 2) {
+    animation: none;
+  }
+}
