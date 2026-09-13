@@ -20,6 +20,7 @@ const VAULT_CODE_CONFIG = {
   name: "Vault Code",
   tagline: "Trouve la combinaison du coffre avant d'épuiser tes essais.",
   steps: 7,
+  format: "4 chiffres, 5 à 7 essais",
   digits: 4,
   labels: { step: "essai", option: "chiffre", safe: "verrou", danger: "échec", cashout: "Ouvrir" },
   maxPayoutCents: 1_000_000,

@@ -163,9 +163,45 @@
 
 /* ---------------- Arcade ---------------- */
 
+/* Un genre : son titre, puis sa grille. Les genres s'empilent. */
+.arcade__genre {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+/*
+ * Le titre d'un genre se lit comme une intercalaire, pas comme un titre de
+ * page : petit, en capitales, à la couleur secondaire, avec un filet qui
+ * court jusqu'au bord pour séparer deux groupes sans ajouter de bloc.
+ */
+.arcade__titre {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.arcade__titre::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+/*
+ * `auto-fill`, et non `auto-fit` : un genre qui n'a qu'un jeu garde la largeur
+ * d'une tuile et s'aligne sur la grille du genre au-dessus, au lieu de
+ * s'étirer sur toute la ligne.
+ */
 .arcade__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: var(--sp-3);
 }
 

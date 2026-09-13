@@ -80,6 +80,12 @@ export type GameLabels = {
 export type GameMode = {
   id: string;
   label: string;
+  /**
+   * Le nombre de coups de CE mode, quand les modes du jeu n'ont pas la même
+   * longueur (Vault Code : 5, 6 ou 7 essais). Absent sinon : le `steps` du jeu
+   * fait alors foi.
+   */
+  steps?: number;
   options: number;
   safeOptions: number;
   houseEdge: number;
@@ -95,6 +101,12 @@ export type GameConfig = {
   /** Faux quand le jeu n'a pas d'encaissement en cours de partie. */
   canCashout: boolean;
   steps: number;
+  /**
+   * Le format annoncé par le jeu, affiché TEL QUEL : « 6 étages »,
+   * « 4 chiffres, 5 à 7 essais », « contre le croupier ». L'arcade ne devine
+   * aucun pluriel à partir de `steps` et `labels`.
+   */
+  format: string;
   labels: GameLabels;
   maxPayoutCents: number;
   minBetCents: number;

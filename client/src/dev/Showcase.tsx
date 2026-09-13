@@ -52,6 +52,7 @@ const VAULT_CONFIG: GameConfig = {
   name: "Vault Rush",
   tagline: "Monte, choisis une porte par étage, encaisse avant l'alarme.",
   steps: 6,
+  format: "6 étages",
   labels: {
     step: "étage",
     option: "porte",
@@ -82,6 +83,7 @@ const LASER_CONFIG: GameConfig = {
   name: "Laser Grid",
   tagline: "Traverse la grille ligne par ligne sans toucher un laser.",
   steps: 8,
+  format: "8 lignes",
   labels: {
     step: "ligne",
     option: "case",
@@ -115,6 +117,7 @@ const GETAWAY_CONFIG: GameConfig = {
   name: "Getaway",
   tagline: "Choisis ta route à chaque tronçon, planque-toi avant le barrage.",
   steps: 5,
+  format: "5 tronçons",
   labels: {
     step: "tronçon",
     option: "route",
@@ -145,6 +148,7 @@ const BOMB_CONFIG: GameConfig = {
   name: "Bomb Squad",
   tagline: "Coupe un câble par étape, retire-toi avant l'explosion.",
   steps: 4,
+  format: "4 étapes",
   labels: {
     step: "étape",
     option: "câble",

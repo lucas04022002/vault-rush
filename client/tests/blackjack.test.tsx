@@ -19,6 +19,7 @@ const CONFIG = {
   tagline: "Tire ou reste, bats le croupier sans dépasser 21.",
   canCashout: false,
   steps: 10,
+  format: "contre le croupier",
   maxPayoutCents: 1_000_000,
   minBetCents: 100,
   maxBetCents: 100_000,

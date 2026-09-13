@@ -333,7 +333,7 @@ describe("GameCard", () => {
         onRules={onRules}
       />,
     );
-    expect(screen.getByRole("heading", { level: 2, name: "Vault Rush" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Vault Rush" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Jouer à Vault Rush/i }));
     await userEvent.click(screen.getByRole("button", { name: /Règles de Vault Rush/i }));
     expect(onPlay).toHaveBeenCalledTimes(1);
