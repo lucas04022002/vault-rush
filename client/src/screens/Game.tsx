@@ -4,6 +4,7 @@ import { ApiError, wallet } from "../api.ts";
 import { Button, PageTitle, Toast } from "../components/index.ts";
 import { Bilan } from "../games/Bilan.tsx";
 import { BetForm } from "../games/BetForm.tsx";
+import { accentFor } from "../games/boards/index.ts";
 import { PlayPanel } from "../games/PlayPanel.tsx";
 import { useLadderGame } from "../games/useLadderGame.ts";
 import { formatCoins } from "../lib/format.ts";
@@ -66,7 +67,10 @@ export function Game() {
 
   return (
     <>
-      <PageTitle eyebrow={`${config.steps} ${config.labels.step}s · coins fictifs`}>
+      <PageTitle
+        eyebrow={`${config.steps} ${config.labels.step}s · coins fictifs`}
+        accent={accentFor(config.id)}
+      >
         {config.name}
       </PageTitle>
 

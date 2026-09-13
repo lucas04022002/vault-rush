@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-export type ButtonVariant = "primary" | "secondary" | "danger" | "quiet";
+export type ButtonVariant = "primary" | "secondary" | "danger" | "quiet" | "accent-cyan";
 
 export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
   variant?: ButtonVariant;
@@ -9,7 +9,10 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "childre
   children: ReactNode;
 };
 
-/** Bouton d'arcade : pilule jaune à ombre dure en principal. */
+/**
+ * Bouton d'arcade : pilule jaune à ombre dure en principal, cyan (`accent-cyan`)
+ * quand le jeu porte l'accent froid — Laser Grid.
+ */
 export function Button({
   variant = "primary",
   pending = false,

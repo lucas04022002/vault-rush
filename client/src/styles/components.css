@@ -83,6 +83,21 @@
   box-shadow: 0 2px 0 var(--yel-shadow);
 }
 
+/* Accent froid : le bouton principal de Laser Grid. */
+.btn[data-variant="accent-cyan"] {
+  background: var(--cyan);
+  color: var(--cyan-ink);
+  box-shadow: var(--shadow-hard-cyan);
+  text-transform: uppercase;
+  font-family: var(--font-title);
+  font-size: 15px;
+}
+
+.btn[data-variant="accent-cyan"]:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--cyan-shadow);
+}
+
 .btn[data-variant="secondary"] {
   background: transparent;
   color: var(--cyan);
@@ -474,6 +489,10 @@
   font-size: 34px;
   color: var(--yel);
   text-shadow: 3px 3px 0 var(--mag);
+}
+
+.pagetitle[data-accent="cyan"] .pagetitle__h {
+  color: var(--cyan);
 }
 
 /* ---------------- GameCard ---------------- */

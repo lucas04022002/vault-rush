@@ -1,7 +1,8 @@
 import type { GameConfig, Outcome, Round } from "../api.ts";
-import { Button, OptionGrid, StepTrack } from "../components/index.ts";
+import { Button } from "../components/index.ts";
 import { formatCoins } from "../lib/format.ts";
-import { capitalize, cashoutLabel, modeOf, nextCashoutCents } from "./labels.ts";
+import { accentFor, boardFor } from "./boards/index.ts";
+import { cashoutLabel, nextCashoutCents } from "./labels.ts";
 
 export type PlayPanelProps = {
   config: GameConfig;
@@ -12,34 +13,27 @@ export type PlayPanelProps = {
   onCashout: () => void;
 };
 
-/** En jeu : la progression, les options, et le bouton d'encaissement. */
+/**
+ * En jeu : le plateau du jeu (portes de coffre ou grille laser), et le bouton
+ * d'encaissement à l'accent du jeu. Tout le reste est commun.
+ */
 export function PlayPanel({ config, round, revealed, pending, onPick, onCashout }: PlayPanelProps) {
-  const mode = modeOf(config, round.mode);
   const suivant = nextCashoutCents(config, round);
+  const Board = boardFor(config.id);
+  const accent = accentFor(config.id);
 
   return (
     <section className="panel gamepanel" data-game={config.id} aria-label="Partie en cours">
-      <StepTrack
-        steps={config.steps}
-        current={round.step}
-        multipliers={mode?.multipliers ?? []}
-        status={round.status}
-      />
-
-      <OptionGrid
-        count={mode?.options ?? 0}
-        labels={{
-            option: capitalize(config.labels.option),
-            safe: config.labels.safe,
-            danger: config.labels.danger,
-          }}
+      <Board
+        config={config}
+        round={round}
+        revealed={revealed}
+        pending={pending}
         onPick={onPick}
-        disabled={pending}
-        revealed={revealed ?? undefined}
       />
 
       <Button
-        variant="primary"
+        variant={accent === "cyan" ? "accent-cyan" : "primary"}
         pending={pending}
         disabled={round.step === 0}
         onClick={onCashout}
