@@ -77,8 +77,8 @@ drapeau.
 ```bash
 npm ci                                   # racine : installe les deux workspaces
 cp server/.env.example server/.env       # puis remplacer JWT_SECRET (>= 32 caractères)
-npm run dev                              # l'API sur http://127.0.0.1:3001
-npm run dev:client                       # dans un second terminal : http://127.0.0.1:5173
+npm run dev                              # API (127.0.0.1:3001) + client (127.0.0.1:5173) dans le même terminal
+# ou séparément : npm run dev:server / npm run dev:client
 ```
 
 Le client de développement s'ouvre sur **`http://127.0.0.1:5173`** (jamais

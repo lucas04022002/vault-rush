@@ -12,7 +12,8 @@
     "server"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=server",
+    "dev": "node scripts/dev.mjs",
+    "dev:server": "npm run dev --workspace=server",
     "dev:client": "npm run dev --workspace=client",
     "start": "node --disable-warning=ExperimentalWarning server/src/app.ts",
     "build": "npm run build --workspaces --if-present",
