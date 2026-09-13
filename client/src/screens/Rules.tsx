@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { games, type GameConfig } from "../api.ts";
+import { BlackjackRules } from "../games/BlackjackRules.tsx";
+import type { BlackjackConfig } from "../games/blackjack.ts";
 import { PageTitle, RewardTable, Toast } from "../components/index.ts";
 import { formatCoins, formatPercent } from "../lib/format.ts";
 import { errorMessage } from "../lib/messages.ts";
@@ -41,6 +43,9 @@ export function Rules() {
       </p>
     );
   }
+
+  // Un jeu de cartes n'a ni étape ni option : ses règles sont les siennes.
+  if (config.kind === "cards") return <BlackjackRules config={config as BlackjackConfig} />;
 
   const { labels, steps } = config;
 

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 export type PageTitleProps = {
   eyebrow?: ReactNode;
   /** L'accent du jeu : jaune par défaut, une couleur par jeu ensuite. */
-  accent?: "yellow" | "cyan" | "magenta" | "orange";
+  accent?: "yellow" | "cyan" | "magenta" | "orange" | "felt";
   children: ReactNode;
 };
 

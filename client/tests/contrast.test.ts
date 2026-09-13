@@ -71,6 +71,15 @@ describe("contraste WCAG des jetons", () => {
     ["orange sur panneau (gaine de câble, afficheur)", "--orange", "--panel"],
     ["orange sur panneau secondaire", "--orange", "--panel2"],
     ["orange sur fond (boîtier)", "--orange", "--bg"],
+    // Blackjack Express : le tapis, et surtout les cartes — le rang doit se lire.
+    ["encre verte sur vert (bouton de Blackjack Express)", "--felt-ink", "--felt"],
+    ["encre de carte sur face de carte (pique et trèfle)", "--card-ink", "--card-face"],
+    ["rouge de carte sur face de carte (cœur et carreau)", "--card-red", "--card-face"],
+    ["texte sur tapis (totaux et noms des mains)", "--text", "--felt-table"],
+    ["texte secondaire sur tapis", "--dim", "--felt-table"],
+    ["vert sur tapis (le total d'une main)", "--felt", "--felt-table"],
+    ["vert sur panneau (résultat de la manche)", "--felt", "--panel"],
+    ["vert sur panneau secondaire", "--felt", "--panel2"],
   ];
 
   for (const [label, fg, bg] of normal) {
@@ -87,6 +96,7 @@ describe("contraste WCAG des jetons", () => {
     ["titre cyan sur fond", "--cyan", "--bg"],
     ["titre magenta sur fond (Getaway)", "--mag", "--bg"],
     ["titre orange sur fond (Bomb Squad)", "--orange", "--bg"],
+    ["titre vert sur fond (Blackjack Express)", "--felt", "--bg"],
   ];
 
   for (const [label, fg, bg] of large) {

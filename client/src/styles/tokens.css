@@ -37,6 +37,16 @@
   --alarm: #FF4D4D;       /* alarme, perte, erreurs */
   --alarm-ink: #2A0000;   /* texte sur rouge (AA 5,8:1) */
 
+  /* Blackjack Express : le tapis du croupier et les cartes posées dessus. */
+  --felt: #3FBF7F;        /* accent du jeu : titre, bouton, totaux */
+  --felt-ink: #052316;    /* texte sur vert tapis (AA 7,1:1) */
+  --felt-shadow: #1F7A4E; /* ombre dure du bouton vert */
+  --felt-table: #0B3A26;  /* le drap de la table, sous les cartes */
+  --card-face: #F4ECE2;   /* la face d'une carte */
+  --card-ink: #16121F;    /* pique et trèfle sur la face (AA 15,7:1) */
+  --card-red: #B3122B;    /* cœur et carreau sur la face (AA 5,9:1) */
+  --card-back: #2A1650;   /* le dos d'une carte, motif au jeton --mag */
+
   /* ---- Lueurs et ombres (les rgba() vivent ici, nulle part ailleurs) ---- */
   --glow-mag: 0 0 14px rgba(255, 61, 138, 0.6);
   --glow-mag-wide: 0 0 40px rgba(255, 61, 138, 0.25);
@@ -51,6 +61,8 @@
   --shadow-hard-cyan: 0 6px 0 var(--cyan-shadow);
   --shadow-hard-mag: 0 6px 0 var(--mag-shadow);
   --shadow-hard-orange: 0 6px 0 var(--orange-shadow);
+  --shadow-hard-felt: 0 6px 0 var(--felt-shadow);
+  --glow-felt: 0 0 14px rgba(63, 191, 127, 0.45);
   --page-halo: radial-gradient(1200px 500px at 50% -10%, var(--bg-halo) 0%, var(--bg) 60%);
 
   /* ---- Polices ---- */

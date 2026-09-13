@@ -20,7 +20,13 @@ import type { ZodType } from "zod";
  * Ajouter un jeu = ajouter son identifiant ici, écrire son moteur, et
  * l'enregistrer dans `engine/registry.ts` (une ligne).
  */
-export const GAME_IDS = ["vault-rush", "laser-grid", "getaway", "bomb-squad"] as const;
+export const GAME_IDS = [
+  "vault-rush",
+  "laser-grid",
+  "getaway",
+  "bomb-squad",
+  "blackjack-express",
+] as const;
 
 export type GameId = (typeof GAME_IDS)[number];
 

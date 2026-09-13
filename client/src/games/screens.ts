@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import type { GameConfig, GameKind } from "../api.ts";
+import { BlackjackScreen } from "./BlackjackScreen.tsx";
 import { LadderScreen } from "./LadderScreen.tsx";
 
 /**
@@ -18,5 +19,6 @@ export type GameScreen = (props: GameScreenProps) => ReactElement | null;
 
 export const SCREENS: Partial<Record<GameKind, GameScreen>> = {
   ladder: LadderScreen,
-  // code : Vault Code · drop : Diamond Drop · cards : Blackjack Express
+  cards: BlackjackScreen,
+  // code : Vault Code · drop : Diamond Drop
 };
