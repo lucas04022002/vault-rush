@@ -18,8 +18,45 @@ pas. Il écrit son moteur, l'enregistre, écrit son écran. Rien d'autre.
 | `client/tests/<jeu>.test.tsx` | ses tests d'écran (nouveau fichier) |
 
 Aucune route, aucune migration, aucun changement du service, de `api.ts`, de
-`Game.tsx` ni de la base. Deux jeux écrits en parallèle ne se touchent que sur
-les trois lignes d'enregistrement (`GAME_IDS`, `buildEngines`, `SCREENS`).
+`Game.tsx` ni de la base. **Cela reste vrai.**
+
+### Correction du 14/09 : ce n'était pas trois lignes, c'en est douze
+
+Ce contrat annonçait que deux jeux écrits en parallèle « ne se touchent que sur
+les trois lignes d'enregistrement ». Les trois jeux du 13/09 (Vault Code,
+Diamond Drop, Blackjack Express) ont chacun touché **24 à 26 fichiers**, dont
+neuf partagés que la table ci-dessus ne mentionnait pas — et c'est là que la
+fusion a fait mal (accents en double, registre des règles, CSS recollé de
+travers). La liste réelle, à corriger d'avance la prochaine fois :
+
+| Fichier partagé | Ce qu'un jeu y ajoute |
+|---|---|
+| `server/src/engine/types.ts` | son identifiant dans `GAME_IDS`, **son genre dans `GameKind`** |
+| `server/src/engine/registry.ts` | une ligne dans `buildEngines()` |
+| `client/src/games/screens.ts` | une ligne dans `SCREENS`, **et une dans `RULES`** s'il a ses propres règles |
+| `client/src/games/boards/index.ts` | son accent dans `ACCENTS` **et dans le type `BoardAccent`** |
+| `client/src/components/Button.tsx` | la variante de bouton à sa couleur |
+| `client/src/components/GameCard.tsx` | son accent dans l'union de props |
+| `client/src/components/PageTitle.tsx` | son accent dans l'union de props |
+| `client/src/styles/tokens.css` | ses jetons de couleur — et nulle part ailleurs |
+| `client/src/styles/components.css` | la tuile et le titre à son accent |
+| `client/tests/contrast.test.ts` | le couple texte/fond de son accent |
+
+Et deux champs de config que ce contrat ne demandait pas, ajoutés le 14/09 :
+
+- **`format`** (obligatoire) : le format du jeu écrit par le jeu, affiché tel
+  quel dans l'arcade — « 6 étages », « 4 chiffres, 5 à 7 essais », « contre le
+  croupier ». L'arcade pluralisait `labels.step` au jugé et écrivait
+  « Jeu 05 · 1 lâchers » ;
+- **`modes[].steps`** (facultatif) : la longueur d'un mode quand les modes du jeu
+  n'ont pas la même (Vault Code : 5, 6 ou 7 essais). Sans lui, l'historique
+  affiche « 3 sur 7 » pour une partie de cinq essais.
+
+Enfin, un jeu ne recopie **plus** le formulaire de mise : les trois jeux du 13/09
+l'avaient chacun réécrit pour la seule raison que leur panneau de récompenses
+n'est pas une `RewardTable`. `client/src/games/BetForm.tsx` prend désormais
+`submitLabel`, `submitVariant`, `modeLabel`, `modeAria`, `note`, `footer` et un
+`reward(betCents, modeId)` facultatif rendu par l'écran (`RewardPanel`).
 
 ## 2. La signature, mot pour mot
 
@@ -87,6 +124,8 @@ jeu**. L'enveloppe est validée par le contrôleur, les champs du jeu par
 
 - ladder `{ option }` · Vault Code `{ guess }` · Diamond Drop `{}` · Blackjack `{ move }`
 
+Les quatre sont livrés depuis le 13/09 : ce ne sont plus des exemples.
+
 Un coup légalement formé mais impossible dans l'état courant (option hors
 bornes, essai en trop) est un `EngineError`, pas un `invalid_body`.
 
@@ -116,6 +155,7 @@ export function createPileEngine(): GameEngine<PileState, PileAction> {
       tagline: "Un coup, une chance sur deux.",
       canCashout: false,
       steps: 1,
+      format: "un coup",                   // affiché tel quel dans l'arcade
       maxPayoutCents: MAX_PAYOUT_CENTS,
       minBetCents: MIN_BET_CENTS,
       maxBetCents: MAX_BET_CENTS,
