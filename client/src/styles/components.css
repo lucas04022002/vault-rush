@@ -138,9 +138,24 @@
   font-size: 15px;
 }
 
+/* Accent du diamant : le bouton principal de Diamond Drop. */
+.btn[data-variant="accent-gem"] {
+  background: var(--gem);
+  color: var(--gem-ink);
+  box-shadow: var(--shadow-hard-gem);
+  text-transform: uppercase;
+  font-family: var(--font-title);
+  font-size: 15px;
+}
+
 .btn[data-variant="accent-ice"]:not(:disabled):active {
   transform: translateY(4px);
   box-shadow: 0 2px 0 var(--ice-shadow);
+}
+
+.btn[data-variant="accent-gem"]:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--gem-shadow);
 }
 
 .btn[data-variant="secondary"] {
@@ -554,6 +569,10 @@
   color: var(--ice);
 }
 
+.pagetitle[data-accent="gem"] .pagetitle__h {
+  color: var(--gem);
+}
+
 /* ---------------- GameCard ---------------- */
 
 .gamecard {
@@ -598,6 +617,10 @@
 
 .gamecard[data-accent="ice"] .gamecard__title {
   color: var(--ice);
+}
+
+.gamecard[data-accent="gem"] .gamecard__title {
+  color: var(--gem);
 }
 
 .gamecard__tagline {

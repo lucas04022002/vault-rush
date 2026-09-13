@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { games, type GameConfig } from "../api.ts";
 import { PageTitle, RewardTable, Toast } from "../components/index.ts";
+import { RULES } from "../games/screens.ts";
 import { formatCoins, formatPercent } from "../lib/format.ts";
-import { VaultCodeRules } from "../games/VaultCodeRules.tsx";
 import { errorMessage } from "../lib/messages.ts";
 
 /**
@@ -43,9 +43,9 @@ export function Rules() {
     );
   }
 
-  // Un jeu qui n'est pas une échelle écrit ses propres règles : les phrases
-  // ci-dessous (étapes, options, encaissement) ne veulent rien dire pour lui.
-  if (config.kind === "code") return <VaultCodeRules config={config} />;
+  // Un genre qui a ses propres règles les écrit lui-même (voir `games/screens.ts`).
+  const Propres = RULES[config.kind];
+  if (Propres) return <Propres config={config} />;
 
   const { labels, steps } = config;
 

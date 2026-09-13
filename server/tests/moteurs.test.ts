@@ -71,7 +71,8 @@ test("la config expose kind et canCashout", async () => {
   const liste = await request(app).get("/api/games");
   assert.ok(liste.body.games.length >= 4);
   for (const jeu of liste.body.games) {
-    assert.ok(["ladder", "code", "drop", "cards"].includes(jeu.kind), `${jeu.id} : ${jeu.kind}`);
+    assert.ok(["ladder", "code", "drop", "cards"].includes(jeu.kind), `${jeu.id}: ${jeu.kind}`);
+    // Seul un jeu d'échelle laisse encaisser en cours de partie.
     assert.equal(jeu.canCashout, jeu.kind === "ladder", jeu.id);
   }
 });

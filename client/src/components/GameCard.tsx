@@ -5,7 +5,7 @@ export type GameCardProps = {
   tag: string;
   title: string;
   tagline: string;
-  accent: "yellow" | "cyan" | "magenta" | "orange" | "ice";
+  accent: "yellow" | "cyan" | "magenta" | "orange" | "ice" | "gem";
   onPlay: () => void;
   onRules: () => void;
 };

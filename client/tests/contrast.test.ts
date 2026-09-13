@@ -73,6 +73,8 @@ describe("contraste WCAG des jetons", () => {
     ["orange sur fond (boîtier)", "--orange", "--bg"],
     ["glace sur panneau (afficheur et verrous de Vault Code)", "--ice", "--panel"],
     ["encre glace sur glace (pavé numérique de Vault Code)", "--ice-ink", "--ice"],
+    ["améthyste sur panneau (clous, cases de Diamond Drop)", "--gem", "--panel"],
+    ["encre améthyste sur améthyste (bouton principal de Diamond Drop)", "--gem-ink", "--gem"],
   ];
 
   for (const [label, fg, bg] of normal) {
@@ -90,6 +92,7 @@ describe("contraste WCAG des jetons", () => {
     ["titre magenta sur fond (Getaway)", "--mag", "--bg"],
     ["titre orange sur fond (Bomb Squad)", "--orange", "--bg"],
     ["titre glace sur fond (Vault Code)", "--ice", "--bg"],
+    ["titre améthyste sur fond (Diamond Drop)", "--gem", "--bg"],
   ];
 
   for (const [label, fg, bg] of large) {

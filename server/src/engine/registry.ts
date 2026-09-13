@@ -1,4 +1,5 @@
 import { GAMES } from "./definitions.ts";
+import { createDropEngine } from "./drop.ts";
 import { createLadderEngine, drawOptions, type DrawFn } from "./ladder.ts";
 import { GAME_IDS, type EngineRegistry, type GameEngine } from "./types.ts";
 import { createVaultCodeEngine } from "./vault-code.ts";
@@ -28,6 +29,7 @@ export function buildEngines(options: BuildEnginesOptions = {}): EngineRegistry 
     getaway: createLadderEngine(GAMES.getaway, draw),
     "bomb-squad": createLadderEngine(GAMES["bomb-squad"], draw),
     "vault-code": createVaultCodeEngine(),
+    "diamond-drop": createDropEngine(),
   };
 }
 
