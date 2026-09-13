@@ -7,7 +7,8 @@ export type ButtonVariant =
   | "quiet"
   | "accent-cyan"
   | "accent-magenta"
-  | "accent-orange";
+  | "accent-orange"
+  | "accent-gem";
 
 export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
   variant?: ButtonVariant;
@@ -18,7 +19,8 @@ export type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "childre
 
 /**
  * Bouton d'arcade : pilule jaune à ombre dure en principal, et une variante par
- * accent de jeu — cyan (Laser Grid), magenta (Getaway), orange (Bomb Squad).
+ * accent de jeu — cyan (Laser Grid), magenta (Getaway), orange (Bomb Squad),
+ * améthyste (Diamond Drop).
  * Toutes ont la même forme et la même ombre dure, seule la couleur change.
  */
 export function Button({

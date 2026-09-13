@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { games, type GameConfig } from "../api.ts";
 import { PageTitle, RewardTable, Toast } from "../components/index.ts";
+import { RULES } from "../games/screens.ts";
 import { formatCoins, formatPercent } from "../lib/format.ts";
 import { errorMessage } from "../lib/messages.ts";
 
@@ -41,6 +42,10 @@ export function Rules() {
       </p>
     );
   }
+
+  // Un genre qui a ses propres règles les écrit lui-même (voir `games/screens.ts`).
+  const Propres = RULES[config.kind];
+  if (Propres) return <Propres config={config} />;
 
   const { labels, steps } = config;
 

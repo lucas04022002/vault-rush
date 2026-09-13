@@ -37,6 +37,11 @@
   --alarm: #FF4D4D;       /* alarme, perte, erreurs */
   --alarm-ink: #2A0000;   /* texte sur rouge (AA 5,8:1) */
 
+  /* Accent de Diamond Drop : le diamant, ses clous et ses cases chaudes. */
+  --gem: #C08BFF;         /* améthyste : diamant, clous, cases extrêmes */
+  --gem-ink: #1E0B33;     /* texte sur améthyste (AA 7,3:1) */
+  --gem-shadow: #7B45B8;  /* ombre dure du bouton améthyste (Diamond Drop) */
+
   /* ---- Lueurs et ombres (les rgba() vivent ici, nulle part ailleurs) ---- */
   --glow-mag: 0 0 14px rgba(255, 61, 138, 0.6);
   --glow-mag-wide: 0 0 40px rgba(255, 61, 138, 0.25);
@@ -47,10 +52,13 @@
   --glow-alarm: 0 0 14px rgba(255, 77, 77, 0.55);
   --glow-orange: 0 0 14px rgba(255, 138, 61, 0.5);
   --glow-orange-inset: inset 0 0 18px rgba(255, 138, 61, 0.15);
+  --glow-gem: 0 0 14px rgba(192, 139, 255, 0.55);
+  --glow-gem-wide: 0 0 30px rgba(192, 139, 255, 0.3);
   --shadow-hard: 0 6px 0 var(--yel-shadow);
   --shadow-hard-cyan: 0 6px 0 var(--cyan-shadow);
   --shadow-hard-mag: 0 6px 0 var(--mag-shadow);
   --shadow-hard-orange: 0 6px 0 var(--orange-shadow);
+  --shadow-hard-gem: 0 6px 0 var(--gem-shadow);
   --page-halo: radial-gradient(1200px 500px at 50% -10%, var(--bg-halo) 0%, var(--bg) 60%);
 
   /* ---- Polices ---- */

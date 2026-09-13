@@ -71,6 +71,8 @@ describe("contraste WCAG des jetons", () => {
     ["orange sur panneau (gaine de câble, afficheur)", "--orange", "--panel"],
     ["orange sur panneau secondaire", "--orange", "--panel2"],
     ["orange sur fond (boîtier)", "--orange", "--bg"],
+    ["améthyste sur panneau (clous, cases de Diamond Drop)", "--gem", "--panel"],
+    ["encre améthyste sur améthyste (bouton principal de Diamond Drop)", "--gem-ink", "--gem"],
   ];
 
   for (const [label, fg, bg] of normal) {
@@ -87,6 +89,7 @@ describe("contraste WCAG des jetons", () => {
     ["titre cyan sur fond", "--cyan", "--bg"],
     ["titre magenta sur fond (Getaway)", "--mag", "--bg"],
     ["titre orange sur fond (Bomb Squad)", "--orange", "--bg"],
+    ["titre améthyste sur fond (Diamond Drop)", "--gem", "--bg"],
   ];
 
   for (const [label, fg, bg] of large) {
