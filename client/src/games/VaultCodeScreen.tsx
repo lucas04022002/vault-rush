@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Link } from "react-router";
 import type { Round } from "../api.ts";
-import { Amount, Button, Chip, Field, PageTitle, Toast } from "../components/index.ts";
-import { formatCoins, formatMultiplier } from "../lib/format.ts";
+import { Amount, Button, PageTitle, Toast } from "../components/index.ts";
+import { formatMultiplier } from "../lib/format.ts";
 import { playOutcome } from "../lib/sound.ts";
 import { useSession } from "../session.tsx";
-import { checkBet, coinsOnly, QUICK_BETS } from "./bets.ts";
+import { BetForm, RewardPanel } from "./BetForm.tsx";
 import { accentFor } from "./boards/index.ts";
 import { Refill, REFILL_THRESHOLD_CENTS } from "./Refill.tsx";
 import type { GameScreenProps } from "./screens.ts";
@@ -21,6 +21,11 @@ import {
   type VaultCodeConfig,
   type VaultCodeMode,
 } from "./vaultCode.ts";
+
+/** Les essais accordés par un mode, lus dans la config du serveur. */
+function essaisDe(config: VaultCodeConfig, modeId: string): number {
+  return modeOf(config, modeId).essais;
+}
 
 /**
  * L'écran de VAULT CODE (`kind: "code"`).
@@ -80,7 +85,7 @@ export function VaultCodeScreen({ gameId, config: brut }: GameScreenProps) {
   return (
     <>
       <PageTitle
-        eyebrow={`${config.digits} chiffres tous différents · coins fictifs`}
+        eyebrow={`${config.format} · coins fictifs`}
         accent={accentFor(config.id)}
       >
         {config.name}
@@ -107,13 +112,22 @@ export function VaultCodeScreen({ gameId, config: brut }: GameScreenProps) {
       ) : null}
 
       {state === "idle" ? (
-        <VaultCodeBet
+        <BetForm
           config={config}
           pending={partie.pending}
           onStart={(coins, modeId) => void partie.start(coins, modeId)}
+          submitLabel="Ouvrir le coffre"
+          submitVariant="accent-ice"
+          modeLabel={(m) => `${m.label} · ${essaisDe(config, m.id)} essais`}
+          modeAria={(m) => `Mode ${m.label}, ${essaisDe(config, m.id)} essais`}
           footer={
             balanceCents < REFILL_THRESHOLD_CENTS ? <Refill onBalance={setBalance} /> : null
           }
+          reward={(betCents) => (
+            <RewardPanel titre="Table des gains">
+              <VaultCodePayouts config={config} betCents={betCents ?? undefined} />
+            </RewardPanel>
+          )}
         />
       ) : null}
 
@@ -146,105 +160,6 @@ export function VaultCodeScreen({ gameId, config: brut }: GameScreenProps) {
           onChangeBet={partie.changeBet}
         />
       ) : null}
-    </>
-  );
-}
-
-/* --------------------------------- La mise --------------------------------- */
-
-type BetProps = {
-  config: VaultCodeConfig;
-  pending: boolean;
-  onStart: (coins: string, mode: string) => void;
-  footer?: React.ReactNode;
-};
-
-/** Avant de miser : montant, mode, et la table des gains en face. */
-function VaultCodeBet({ config, pending, onStart, footer }: BetProps) {
-  const [mise, setMise] = useState(() => coinsOnly(500));
-  const [mode, setMode] = useState(config.modes[0].id);
-  const [erreur, setErreur] = useState<string | null>(null);
-
-  const controle = checkBet(mise, config.minBetCents, config.maxBetCents);
-
-  function lancer() {
-    if (controle.error) {
-      setErreur(controle.error);
-      return;
-    }
-    setErreur(null);
-    onStart(mise, mode);
-  }
-
-  return (
-    <>
-      <section className="panel betform" aria-label="Mise">
-        <p className="label" id="mise-raccourcis">
-          Mise
-        </p>
-        <div className="chips" role="group" aria-labelledby="mise-raccourcis">
-          {QUICK_BETS.map((cents) => (
-            <Chip
-              key={cents}
-              selected={controle.cents === cents}
-              aria-label={`Mise ${formatCoins(cents)}`}
-              disabled={pending}
-              onClick={() => {
-                setMise(coinsOnly(cents));
-                setErreur(null);
-              }}
-            >
-              {coinsOnly(cents)}
-            </Chip>
-          ))}
-        </div>
-
-        <Field
-          label="Mise libre"
-          id="mise-libre"
-          hint={`Entre ${coinsOnly(config.minBetCents)} et ${formatCoins(config.maxBetCents)}`}
-          error={erreur}
-        >
-          <input
-            inputMode="decimal"
-            autoComplete="off"
-            value={mise}
-            disabled={pending}
-            onChange={(event) => {
-              setMise(event.target.value);
-              setErreur(null);
-            }}
-          />
-        </Field>
-
-        <p className="label" id="mode-choix">
-          Mode
-        </p>
-        <div className="chips" role="group" aria-labelledby="mode-choix">
-          {config.modes.map((m) => (
-            <Chip
-              key={m.id}
-              selected={m.id === mode}
-              aria-label={`Mode ${m.label}, ${m.essais} essais`}
-              disabled={pending}
-              onClick={() => setMode(m.id)}
-            >
-              {`${m.label} · ${m.essais} essais`}
-            </Chip>
-          ))}
-        </div>
-
-        <Button variant="accent-ice" pending={pending} onClick={lancer}>
-          Ouvrir le coffre
-        </Button>
-
-        {footer}
-      </section>
-
-      <section className="panel" aria-label="Table des gains">
-        <p className="label">Table des gains</p>
-        <VaultCodePayouts config={config} betCents={controle.cents ?? undefined} />
-      </section>
     </>
   );
 }

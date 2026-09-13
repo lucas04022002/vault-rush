@@ -22,6 +22,7 @@ const CONFIG = {
   tagline: "Lâche le diamant, laisse les clous décider.",
   canCashout: false,
   steps: 1,
+  format: "8 à 16 rangées",
   maxPayoutCents: 1_000_000,
   minBetCents: 100,
   maxBetCents: 100_000,
@@ -331,5 +332,114 @@ describe("dérivations du plateau", () => {
     expect(heatOf(4, 9)).toBe("froid");
     expect(heatOf(0, 17)).toBe("chaud");
     expect(heatOf(8, 17)).toBe("froid");
+  });
+});
+
+describe("le mode Fou reste lisible sur un téléphone", () => {
+  /*
+   * Dix-sept cases ne tiennent pas sur 375 px : la bande défile dans sa zone,
+   * et le ×604,39 des bords — la raison de jouer ce mode — n'était jamais à
+   * l'écran. Deux blocs qui, eux, ne défilent pas, doivent le montrer.
+   */
+
+  // La vraie table du mode, copiée de `server/src/engine/drop.ts`.
+  const FOU = [
+    604.39, 75.54, 16.67, 5.25, 2.16, 1.12, 0.71, 0.54, 0.5, 0.54, 0.71, 1.12, 2.16, 5.25, 16.67,
+    75.54, 604.39,
+  ];
+
+  const CONFIG_FOU = {
+    ...CONFIG,
+    modes: [
+      {
+        id: "fou",
+        label: "Fou",
+        rows: 16,
+        alpha: 0.75,
+        houseEdge: 0.06,
+        slots: FOU,
+        chances: FOU.map(() => 0.0588),
+      },
+    ],
+  };
+
+  function fouApi() {
+    return baseApi()
+      .on("GET /api/games/diamond-drop/config", { json: { game: CONFIG_FOU } })
+      .on("GET /api/games/diamond-drop/current", { json: { round: null } });
+  }
+
+  it("annonce les bords et le milieu avant de miser, sans rien déplier", async () => {
+    fouApi().install();
+    renderApp("/jeux/diamond-drop");
+
+    expect(await screen.findByRole("heading", { name: "Diamond Drop" })).toBeInTheDocument();
+    const repères = screen.getByText(/Bords/).closest("p") as HTMLParagraphElement;
+    expect(repères).toHaveTextContent("Bords ×604,39");
+    expect(repères).toHaveTextContent("milieu ×0,50");
+  });
+
+  it("donne les dix-sept cases dans une liste verticale, repliée", async () => {
+    fouApi().install();
+    renderApp("/jeux/diamond-drop");
+
+    const résumé = await screen.findByText("Toutes les cases (17)");
+    const liste = résumé.closest("details") as HTMLDetailsElement;
+    expect(liste.open).toBe(false);
+
+    // Une LIGNE par case : aucune largeur d'écran ne peut la couper.
+    expect(within(liste).getAllByRole("row")).toHaveLength(18); // 17 cases + l'entête
+    expect(within(liste).getAllByRole("cell", { name: "×604,39" })).toHaveLength(2);
+    expect(within(liste).getByRole("rowheader", { name: "9" })).toBeInTheDocument();
+  });
+
+  it("marque la case d'arrivée dans la liste, une fois le diamant posé", async () => {
+    const chemin = Array.from({ length: 16 }, (_, i) => i < 3);
+    const posée = {
+      id: 9,
+      game: "diamond-drop",
+      mode: "fou",
+      status: "cashed_out",
+      step: 1,
+      maxSteps: 1,
+      betCents: 500,
+      multiplier: 5.25,
+      nextMultiplier: null,
+      cashoutCents: 2625,
+      payoutCents: 2625,
+      createdAt: "2026-09-14 00:00:00",
+      finishedAt: "2026-09-14 00:00:01",
+      view: {
+        mode: "fou",
+        rows: 16,
+        slots: FOU,
+        dropped: true,
+        path: chemin,
+        slot: 3,
+        multiplier: 5.25,
+      },
+    };
+
+    fouApi()
+      .on("GET /api/games/diamond-drop/current", {
+        json: { round: { ...posée, status: "playing", step: 0, payoutCents: 0, view: { ...posée.view, dropped: false, path: null, slot: null, multiplier: null } } },
+      })
+      .on("POST /api/games/diamond-drop/play", {
+        json: { round: posée, path: chemin, slot: 3, multiplier: 5.25 },
+      })
+      .on("GET /api/wallet", { json: { balanceCents: 102_625 } })
+      .install();
+    renderApp("/jeux/diamond-drop");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Lâcher le diamant" }));
+    await screen.findByRole("table", { name: "Bilan de la partie" }, { timeout: 5000 });
+
+    const résumé = screen.getByText("Toutes les cases (17)");
+    const liste = résumé.closest("details") as HTMLDetailsElement;
+    const arrivée = within(liste).getByRole("rowheader", { name: "4" }).closest("tr");
+    expect(arrivée).toHaveAttribute("data-landed", "true");
+    expect(arrivée).toHaveAttribute("aria-current", "true");
+    // Une seule case marquée : celle où le diamant est tombé.
+    expect(liste.querySelectorAll('tr[data-landed="true"]')).toHaveLength(1);
   });
 });

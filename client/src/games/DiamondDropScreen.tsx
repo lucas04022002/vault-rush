@@ -1,15 +1,17 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { api, type GameConfig, type Round } from "../api.ts";
-import { Amount, Button, Chip, Field, PageTitle, Toast } from "../components/index.ts";
+import { Amount, Button, PageTitle, Toast } from "../components/index.ts";
 import { formatCoins, formatMultiplier } from "../lib/format.ts";
 import { playOutcome } from "../lib/sound.ts";
 import { useSession } from "../session.tsx";
-import { QUICK_BETS, checkBet, coinsOnly } from "./bets.ts";
+import { BetForm, RewardPanel } from "./BetForm.tsx";
+import { accentFor } from "./boards/index.ts";
 import { DiamondBoard } from "./DiamondBoard.tsx";
+import { Reperes, ToutesLesCases } from "./DiamondCases.tsx";
 import { Refill, REFILL_THRESHOLD_CENTS } from "./Refill.tsx";
 import type { GameScreenProps } from "./screens.ts";
-import { dropModes, viewOf, type DropDrop } from "./drop.ts";
+import { dropModes, viewOf, type DropDrop, type DropModeView } from "./drop.ts";
 import { heatOf } from "./heat.ts";
 import { useRound } from "./useRound.ts";
 import "./diamond-drop.css";
@@ -126,7 +128,7 @@ export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
 
   return (
     <>
-      <PageTitle eyebrow="1 lâcher · coins fictifs" accent="gem">
+      <PageTitle eyebrow={`${config.format} · coins fictifs`} accent={accentFor(config.id)}>
         {config.name}
       </PageTitle>
 
@@ -152,11 +154,19 @@ export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
       ) : null}
 
       {state === "idle" ? (
-        <DiamondBet
+        <BetForm
           config={config}
           pending={partie.pending}
           onStart={(coins, modeId) => void partie.start(coins, modeId)}
+          submitVariant="accent-gem"
           footer={balanceCents < REFILL_THRESHOLD_CENTS ? <Refill onBalance={setBalance} /> : null}
+          reward={(betCents, modeId) => (
+            <CasesDuMode
+              config={config}
+              mode={modes.find((m) => m.id === modeId) ?? modes[0]}
+              betCents={betCents}
+            />
+          )}
         />
       ) : null}
 
@@ -170,11 +180,20 @@ export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
             </span>
           </p>
 
+          {/* Les deux chiffres qui comptent, avant même de regarder la bande. */}
+          <Reperes slots={vue.slots} />
+
           <DiamondBoard
             rows={vue.rows}
             slots={vue.slots}
             path={chute?.path ?? null}
             row={rangee}
+            landedSlot={posee ? (chute?.slot ?? null) : null}
+          />
+
+          {/* La bande défile ; cette liste-ci, jamais : elle est verticale. */}
+          <ToutesLesCases
+            slots={vue.slots}
             landedSlot={posee ? (chute?.slot ?? null) : null}
           />
 
@@ -246,121 +265,44 @@ export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
   );
 }
 
-/* ------------------------------- L'écran de mise ------------------------------- */
-
-type DiamondBetProps = {
-  config: GameConfig;
-  pending: boolean;
-  onStart: (coins: string, mode: string) => void;
-  footer: React.ReactNode;
-};
+/* --------------------------- Le panneau des cases --------------------------- */
 
 /**
- * Avant de miser : montant, mode, et la bande des cases du mode choisi — le
- * tableau des récompenses de ce jeu, c'est le plateau lui-même.
+ * Ce que Diamond Drop met en face de la mise : sa bande de cases. Le tableau
+ * des récompenses de ce jeu, c'est le plateau lui-même.
  */
-function DiamondBet({ config, pending, onStart, footer }: DiamondBetProps) {
-  const modes = dropModes(config);
-  const [bet, setBet] = useState(() => coinsOnly(500));
-  const [mode, setMode] = useState(modes[0].id);
-  const [error, setError] = useState<string | null>(null);
-
-  const check = checkBet(bet, config.minBetCents, config.maxBetCents);
-  const choisi = modes.find((m) => m.id === mode) ?? modes[0];
-
-  function lancer() {
-    if (check.error) {
-      setError(check.error);
-      return;
-    }
-    setError(null);
-    onStart(bet, mode);
-  }
-
-  const maxi = check.cents === null ? null : Math.round(check.cents * Math.max(...choisi.slots));
+function CasesDuMode({
+  config,
+  mode,
+  betCents,
+}: {
+  config: GameConfig;
+  mode: DropModeView;
+  betCents: number | null;
+}) {
+  const maxi = betCents === null ? null : Math.round(betCents * Math.max(...mode.slots));
   const plafonné = maxi !== null && maxi > config.maxPayoutCents;
 
   return (
-    <>
-      <section className="panel betform" aria-label="Mise">
-        <p className="label" id="mise-raccourcis">
-          Mise
-        </p>
-        <div className="chips" role="group" aria-labelledby="mise-raccourcis">
-          {QUICK_BETS.map((cents) => (
-            <Chip
-              key={cents}
-              selected={check.cents === cents}
-              aria-label={`Mise ${formatCoins(cents)}`}
-              disabled={pending}
-              onClick={() => {
-                setBet(coinsOnly(cents));
-                setError(null);
-              }}
-            >
-              {coinsOnly(cents)}
-            </Chip>
-          ))}
-        </div>
-
-        <Field
-          label="Mise libre"
-          id="mise-libre"
-          hint={`Entre ${coinsOnly(config.minBetCents)} et ${formatCoins(config.maxBetCents)}`}
-          error={error}
-        >
-          <input
-            inputMode="decimal"
-            autoComplete="off"
-            value={bet}
-            disabled={pending}
-            onChange={(event) => {
-              setBet(event.target.value);
-              setError(null);
-            }}
-          />
-        </Field>
-
-        <p className="label" id="mode-choix">
-          Mode
-        </p>
-        <div className="chips" role="group" aria-labelledby="mode-choix">
-          {modes.map((m) => (
-            <Chip
-              key={m.id}
-              selected={m.id === mode}
-              aria-label={`Mode ${m.label}`}
-              disabled={pending}
-              onClick={() => setMode(m.id)}
-            >
-              {m.label}
-            </Chip>
-          ))}
-        </div>
-
-        <Button variant="accent-gem" pending={pending} onClick={lancer}>
-          Lancer la partie
-        </Button>
-
-        {footer}
-      </section>
-
-      <section className="panel" aria-label="Récompenses">
-        <p className="label">{`Cases du mode ${choisi.label} — ${choisi.rows} rangées`}</p>
-        <SlotStrip slots={choisi.slots} />
-        <ul className="prose__list">
-          <li>{`La case du milieu est la plus probable : c'est elle qui rapporte le moins.`}</li>
-          {maxi === null ? null : (
-            <li>
-              {`Gain maximum : `}
-              <Amount cents={Math.min(maxi, config.maxPayoutCents)} />
-              {plafonné ? " (plafond atteint)" : ` avec ${formatCoins(check.cents ?? 0)} de mise`}
-            </li>
-          )}
-          <li>{`Gain plafonné à ${formatCoins(config.maxPayoutCents)} par partie.`}</li>
-        </ul>
-      </section>
-    </>
+    <RewardPanel
+      titre={`Cases du mode ${mode.label} — ${mode.rows} rangées`}
+      aria="Récompenses"
+    >
+      <Reperes slots={mode.slots} />
+      <SlotStrip slots={mode.slots} />
+      <ToutesLesCases slots={mode.slots} chances={mode.chances} />
+      <ul className="prose__list">
+        <li>{`La case du milieu est la plus probable : c'est elle qui rapporte le moins.`}</li>
+        {maxi === null ? null : (
+          <li>
+            {`Gain maximum : `}
+            <Amount cents={Math.min(maxi, config.maxPayoutCents)} />
+            {plafonné ? " (plafond atteint)" : ` avec ${formatCoins(betCents ?? 0)} de mise`}
+          </li>
+        )}
+        <li>{`Gain plafonné à ${formatCoins(config.maxPayoutCents)} par partie.`}</li>
+      </ul>
+    </RewardPanel>
   );
 }
 

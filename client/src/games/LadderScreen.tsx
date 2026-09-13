@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
 import { Link } from "react-router";
-import { PageTitle, Toast } from "../components/index.ts";
+import { PageTitle, RewardTable, Toast } from "../components/index.ts";
 import { playOutcome } from "../lib/sound.ts";
 import { useSession } from "../session.tsx";
 import { Bilan } from "./Bilan.tsx";
-import { BetForm } from "./BetForm.tsx";
+import { BetForm, RewardPanel } from "./BetForm.tsx";
 import { accentFor } from "./boards/index.ts";
 import { PlayPanel } from "./PlayPanel.tsx";
 import { Refill, REFILL_THRESHOLD_CENTS } from "./Refill.tsx";
@@ -61,7 +61,7 @@ export function LadderScreen({ gameId, config: jeu }: GameScreenProps) {
   return (
     <>
       <PageTitle
-        eyebrow={`${config.steps} ${config.labels.step}s · coins fictifs`}
+        eyebrow={`${config.format} · coins fictifs`}
         accent={accentFor(config.id)}
       >
         {config.name}
@@ -93,6 +93,15 @@ export function LadderScreen({ gameId, config: jeu }: GameScreenProps) {
           footer={
             balanceCents < REFILL_THRESHOLD_CENTS ? <Refill onBalance={setBalance} /> : null
           }
+          reward={(betCents) => (
+            <RewardPanel titre="Tableau des récompenses" aria="Récompenses">
+              <RewardTable
+                modes={config.modes}
+                betCents={betCents ?? undefined}
+                maxPayoutCents={config.maxPayoutCents}
+              />
+            </RewardPanel>
+          )}
         />
       ) : null}
 

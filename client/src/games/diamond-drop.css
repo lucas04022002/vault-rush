@@ -239,3 +239,101 @@
   color: var(--gem-ink);
   font-weight: 700;
 }
+
+/* ------------------- Les cases, lisibles sans défilement ------------------- */
+
+/*
+ * Le mode Fou a dix-sept cases : la bande défile dans sa zone, et sur un
+ * téléphone le ×604,39 des bords n'est jamais à l'écran. Ces deux blocs ne
+ * défilent jamais — l'un tient sur une ligne, l'autre est vertical.
+ */
+
+.dd-reperes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: baseline;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--dim);
+}
+
+.dd-reperes strong {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.dd-reperes__bord strong {
+  color: var(--gem);
+}
+
+.dd-toutes {
+  border: 2px solid var(--line);
+  border-radius: var(--r-option);
+  background: var(--panel2);
+}
+
+.dd-toutes > summary {
+  padding: var(--sp-2) var(--sp-3);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gem);
+}
+
+.dd-toutes > summary:focus-visible {
+  outline: 3px solid var(--gem);
+  outline-offset: 2px;
+}
+
+/* Une case par LIGNE : aucune largeur d'écran ne peut la couper. */
+.dd-liste {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Chaque sélecteur porte `thead`/`tbody` : aucune spécificité ne redescend. */
+.dd-liste thead th,
+.dd-liste tbody th,
+.dd-liste tbody td {
+  padding: 4px var(--sp-3);
+  text-align: right;
+  border-top: 1px solid var(--line);
+  /* Une case banale est DISCRÈTE : sinon le froid ressort plus que le chaud. */
+  color: var(--dim);
+}
+
+.dd-liste thead th {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dd-liste tbody th {
+  text-align: left;
+  font-weight: 400;
+}
+
+.dd-liste td[data-heat="tiede"] {
+  color: var(--gem);
+}
+
+.dd-liste td[data-heat="chaud"] {
+  color: var(--gem);
+  font-weight: 700;
+}
+
+/* La case d'arrivée se retrouve dans la liste sans avoir à la chercher. */
+.dd-liste tr[data-landed="true"] th,
+.dd-liste tr[data-landed="true"] td {
+  background: var(--yel);
+  color: var(--yel-ink);
+  font-weight: 700;
+}

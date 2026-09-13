@@ -1,11 +1,10 @@
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { api, type Round } from "../api.ts";
-import { Amount, Button, Chip, Field, PageTitle, Toast } from "../components/index.ts";
+import { Amount, Button, PageTitle, Toast } from "../components/index.ts";
 import { formatCoins, formatMultiplier } from "../lib/format.ts";
 import { playOutcome } from "../lib/sound.ts";
 import { useSession } from "../session.tsx";
-import { QUICK_BETS, checkBet, coinsOnly } from "./bets.ts";
 import {
   MOT_ISSUE,
   PIP,
@@ -22,6 +21,7 @@ import {
   estRouge,
   vueDe,
 } from "./blackjack.ts";
+import { BetForm, RewardPanel } from "./BetForm.tsx";
 import { accentFor } from "./boards/index.ts";
 import { Refill, REFILL_THRESHOLD_CENTS } from "./Refill.tsx";
 import type { GameScreenProps } from "./screens.ts";
@@ -177,90 +177,6 @@ function Gains({ config, betCents }: { config: BlackjackConfig; betCents: number
   );
 }
 
-/** Avant la donne : le montant, et ce que chaque issue rapporterait. */
-function Mise({
-  config,
-  pending,
-  onStart,
-  footer,
-}: {
-  config: BlackjackConfig;
-  pending: boolean;
-  onStart: (coins: string, mode: string) => void;
-  footer: ReactNode;
-}) {
-  const [bet, setBet] = useState(() => coinsOnly(500));
-  const [error, setError] = useState<string | null>(null);
-  const check = checkBet(bet, config.minBetCents, config.maxBetCents);
-
-  function lancer() {
-    if (check.error) {
-      setError(check.error);
-      return;
-    }
-    setError(null);
-    onStart(bet, config.modes[0].id);
-  }
-
-  return (
-    <>
-      <section className="panel betform" aria-label="Mise">
-        <p className="label" id="mise-raccourcis">
-          Mise
-        </p>
-        <div className="chips" role="group" aria-labelledby="mise-raccourcis">
-          {QUICK_BETS.map((cents) => (
-            <Chip
-              key={cents}
-              selected={check.cents === cents}
-              aria-label={`Mise ${formatCoins(cents)}`}
-              disabled={pending}
-              onClick={() => {
-                setBet(coinsOnly(cents));
-                setError(null);
-              }}
-            >
-              {coinsOnly(cents)}
-            </Chip>
-          ))}
-        </div>
-
-        <Field
-          label="Mise libre"
-          id="mise-libre"
-          hint={`Entre ${coinsOnly(config.minBetCents)} et ${formatCoins(config.maxBetCents)}`}
-          error={error}
-        >
-          <input
-            inputMode="decimal"
-            autoComplete="off"
-            value={bet}
-            disabled={pending}
-            onChange={(event) => {
-              setBet(event.target.value);
-              setError(null);
-            }}
-          />
-        </Field>
-
-        <p className="gamepanel__line">{`Mode ${config.modes[0].label} · deux cartes pour toi, une visible pour le croupier`}</p>
-
-        <Button variant="accent-felt" pending={pending} onClick={lancer}>
-          Distribuer les cartes
-        </Button>
-
-        {footer}
-      </section>
-
-      <section className="panel" aria-label="Gains">
-        <p className="label">Tableau des gains</p>
-        <Gains config={config} betCents={check.cents} />
-        <p className="gamepanel__line">{config.regleSabot}</p>
-      </section>
-    </>
-  );
-}
-
 /** Le bilan d'une manche : ce qui a été misé, récupéré, et où en est le solde. */
 function BilanManche({
   round,
@@ -396,7 +312,7 @@ export function BlackjackScreen({ gameId, config }: GameScreenProps) {
 
   return (
     <>
-      <PageTitle eyebrow="Cartes · coins fictifs" accent={accentFor(jeu.id)}>
+      <PageTitle eyebrow={`${jeu.format} · coins fictifs`} accent={accentFor(jeu.id)}>
         {jeu.name}
       </PageTitle>
 
@@ -419,11 +335,20 @@ export function BlackjackScreen({ gameId, config }: GameScreenProps) {
       ) : null}
 
       {state === "idle" ? (
-        <Mise
+        <BetForm
           config={jeu}
           pending={partie.pending}
           onStart={(coins, mode) => void partie.start(coins, mode)}
+          submitLabel="Distribuer les cartes"
+          submitVariant="accent-felt"
+          note={`Mode ${jeu.modes[0].label} · deux cartes pour toi, une visible pour le croupier`}
           footer={balanceCents < REFILL_THRESHOLD_CENTS ? <Refill onBalance={setBalance} /> : null}
+          reward={(betCents) => (
+            <RewardPanel titre="Tableau des gains" aria="Gains">
+              <Gains config={jeu} betCents={betCents} />
+              <p className="gamepanel__line">{jeu.regleSabot}</p>
+            </RewardPanel>
+          )}
         />
       ) : null}
 
