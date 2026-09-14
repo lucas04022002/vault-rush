@@ -11,14 +11,15 @@ import { makeApp, ctxOf, signUp, firstSafe, firstDanger } from "./helper.ts";
 const LG = "/api/games/laser-grid";
 const VR = "/api/games/vault-rush";
 
-test("GET /api/games liste les deux jeux avec leurs modes", async () => {
+test("GET /api/games liste les jeux avec leurs modes", async () => {
   const app = makeApp();
   const res = await request(app).get("/api/games");
 
   assert.equal(res.status, 200);
+  // Les quatre jeux d'échelle ouvrent le catalogue, dans cet ordre.
   assert.deepEqual(
-    res.body.games.map((g: any) => g.id),
-    ["vault-rush", "laser-grid"],
+    res.body.games.map((g: any) => g.id).slice(0, 4),
+    ["vault-rush", "laser-grid", "getaway", "bomb-squad"],
   );
 
   const [vault, laser] = res.body.games;

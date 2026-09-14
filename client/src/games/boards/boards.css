@@ -2,6 +2,8 @@
  * Vault Rush — les plateaux, une identité par jeu.
  *   `.vb-*` : chambre forte (étages d'immeuble + portes à molette)
  *   `.lb-*` : salle sécurisée (huit lignes empilées + faisceaux)
+ *   `.gb-*` : cavale (ruban de bitume + panneaux de direction)
+ *   `.bb-*` : boîtier (afficheur sept segments + câbles à couper)
  * Aucune couleur littérale ici : tout passe par les jetons.
  */
 
@@ -593,5 +595,748 @@
 
   .lb-row[data-state="now"] .lb-cell:not([aria-disabled="true"]):hover {
     transform: none;
+  }
+}
+
+/* =================== Getaway : la route =================== */
+
+.gb {
+  display: grid;
+  gap: var(--sp-4);
+}
+
+/* Le ruban de bitume à gauche, la jauge de poursuite à droite. */
+.gb-track {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: var(--sp-3);
+  align-items: stretch;
+}
+
+.gb-roadway {
+  position: relative;
+  padding: 6px;
+  background: var(--steel);
+  border: 2px solid var(--line);
+  border-radius: var(--r-option);
+  overflow: hidden;
+}
+
+/* Les bandes blanches du milieu, qui défilent vers le bas (la voiture monte). */
+.gb-roadway__lanes {
+  position: absolute;
+  top: -40px;
+  bottom: -40px;
+  left: calc(50% - 3px);
+  width: 6px;
+  background: repeating-linear-gradient(
+    180deg,
+    var(--text) 0 18px,
+    transparent 18px 40px
+  );
+  opacity: 0.3;
+  /* Au-dessus des tronçons (ils sont opaques) mais sous la voiture. */
+  z-index: 2;
+  animation: gb-scroll 1.5s linear infinite;
+  pointer-events: none;
+}
+
+/* Tronçon 1 en bas, dernier en haut : le DOM reste dans l'ordre. */
+.gb-road {
+  position: relative;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 6px;
+  list-style: none;
+}
+
+.gb-seg {
+  position: relative;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3);
+  background: var(--bg);
+  color: var(--dim);
+  border: 2px solid var(--line);
+  border-radius: var(--r-sm);
+  font-variant-numeric: tabular-nums;
+  transition: background-color var(--dur) var(--ease);
+}
+
+.gb-seg[data-state="done"] {
+  background: var(--safe);
+  color: var(--safe-ink);
+  border-color: var(--safe);
+}
+
+.gb-seg[data-state="now"] {
+  background: var(--panel2);
+  color: var(--mag);
+  border-color: var(--mag);
+  box-shadow: var(--glow-mag);
+}
+
+.gb-seg[data-state="lost"] {
+  background: var(--alarm);
+  color: var(--alarm-ink);
+  border-color: var(--alarm);
+  box-shadow: var(--glow-alarm);
+}
+
+.gb-seg__num {
+  font-family: var(--font-title);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.gb-seg__mult {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* La voiture, vue de dessus : carrosserie, toit, deux phares. */
+.gb-seg__car {
+  position: absolute;
+  z-index: 3;
+  left: calc(50% - 13px);
+  top: calc(50% - 15px);
+  width: 26px;
+  height: 30px;
+  border-radius: 9px 9px 7px 7px;
+  background: var(--mag);
+  box-shadow: var(--glow-mag);
+}
+
+.gb-seg__car::before,
+.gb-seg__car::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  width: 6px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--yel);
+}
+
+.gb-seg__car::before {
+  left: 2px;
+}
+
+.gb-seg__car::after {
+  right: 2px;
+}
+
+.gb-seg__roof {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 9px;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--mag-ink);
+}
+
+.gb-seg__car[data-crashed="true"] {
+  background: var(--alarm-ink);
+  box-shadow: none;
+  transform: rotate(14deg);
+}
+
+@keyframes gb-scroll {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 40px;
+  }
+}
+
+/* La jauge de poursuite : elle monte d'un cran par tronçon franchi. */
+.gb-chase {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--sp-2);
+  justify-items: center;
+}
+
+/* Le gyrophare, en haut de la jauge : bleu tant qu'on garde de l'avance. */
+.gb-chase::before {
+  content: "";
+  width: 16px;
+  height: 11px;
+  border-radius: 7px 7px 2px 2px;
+  background: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.gb-chase[data-close="true"]::before {
+  background: var(--alarm);
+  box-shadow: var(--glow-alarm);
+}
+
+.gb-chase__bar {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 5px;
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: var(--r-pill);
+}
+
+.gb-chase__pip {
+  flex: 1;
+  min-height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--panel2);
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition:
+    background-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+.gb-chase__pip[data-on="true"] {
+  background: var(--mag);
+}
+
+/* Le dernier cran est rouge : c'est là que la police touche le pare-chocs. */
+.gb-chase__pip[data-last="true"] {
+  background: var(--steel);
+}
+
+.gb-chase__pip[data-last="true"][data-on="true"] {
+  background: var(--alarm);
+}
+
+.gb-chase[data-close="true"] .gb-chase__bar {
+  border-color: var(--alarm);
+  box-shadow: var(--glow-alarm);
+}
+
+.gb-chase[data-close="true"] .gb-chase__pip[data-on="true"] {
+  background: var(--alarm);
+}
+
+/* =================== Getaway : les embranchements =================== */
+
+.gb-signs {
+  display: grid;
+  grid-template-columns: repeat(var(--gb-signs, 4), minmax(0, 1fr));
+  gap: var(--sp-2);
+}
+
+/* Un panneau de direction : un rectangle incliné planté sur son poteau. */
+.gb-sign {
+  position: relative;
+  min-height: 104px;
+  padding: 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  background: transparent;
+  color: var(--text);
+  border: 0;
+  cursor: pointer;
+}
+
+/* Le poteau. */
+.gb-sign::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: calc(50% - 2px);
+  width: 4px;
+  height: 22px;
+  background: var(--line);
+  border-radius: 2px;
+}
+
+.gb-sign[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.gb-sign__plate {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  background: var(--panel2);
+  border: 3px solid var(--mag);
+  border-radius: var(--r-sm);
+  box-shadow: var(--glow-mag);
+  transform: rotate(-4deg);
+  transition:
+    transform var(--dur) var(--ease),
+    background-color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+
+/* La flèche du panneau : un trait et sa pointe. */
+.gb-sign__arrow {
+  position: relative;
+  width: 16px;
+  height: 3px;
+  background: var(--mag);
+  border-radius: 2px;
+}
+
+.gb-sign__arrow::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-top: 3px solid var(--mag);
+  border-right: 3px solid var(--mag);
+  transform: rotate(45deg);
+}
+
+.gb-sign__num {
+  font-family: var(--font-title);
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text);
+}
+
+.gb-sign__word {
+  position: relative;
+  z-index: 1;
+  min-height: 14px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* La barrière du barrage : des hachures en travers du panneau. */
+.gb-sign__barrier {
+  position: absolute;
+  top: 16px;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  height: 18px;
+  border-radius: 3px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--alarm) 0 8px,
+    var(--alarm-ink) 8px 16px
+  );
+  opacity: 0;
+  transform: scaleX(0.2);
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+
+.gb-sign:focus-visible .gb-sign__plate {
+  transform: rotate(-4deg) translateY(-3px);
+}
+
+.gb-sign[data-picked="true"] .gb-sign__plate {
+  outline: 3px solid var(--yel);
+  outline-offset: 2px;
+}
+
+/* Voie libre : le panneau passe au vert. */
+.gb-sign[data-reveal="safe"] .gb-sign__plate {
+  background: var(--safe);
+  border-color: var(--safe);
+  box-shadow: var(--glow-safe);
+  transform: rotate(0deg);
+}
+
+.gb-sign[data-reveal="safe"] .gb-sign__arrow,
+.gb-sign[data-reveal="safe"] .gb-sign__arrow::after {
+  background: var(--safe-ink);
+  border-color: var(--safe-ink);
+}
+
+.gb-sign[data-reveal="safe"] .gb-sign__num {
+  color: var(--safe-ink);
+}
+
+.gb-sign[data-reveal="safe"] .gb-sign__word {
+  color: var(--safe);
+}
+
+/* Barrage : le panneau passe au rouge et la barrière se déploie en travers. */
+.gb-sign[data-reveal="danger"] .gb-sign__plate {
+  background: var(--alarm);
+  border-color: var(--alarm);
+  box-shadow: var(--glow-alarm);
+  transform: rotate(0deg);
+}
+
+.gb-sign[data-reveal="danger"] .gb-sign__arrow,
+.gb-sign[data-reveal="danger"] .gb-sign__arrow::after {
+  background: var(--alarm-ink);
+  border-color: var(--alarm-ink);
+}
+
+.gb-sign[data-reveal="danger"] .gb-sign__num {
+  color: var(--alarm-ink);
+}
+
+.gb-sign[data-reveal="danger"] .gb-sign__word {
+  color: var(--alarm);
+}
+
+.gb-sign[data-reveal="danger"] .gb-sign__barrier {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+/* Le survol vient après les révélations, pour que la spécificité aille en croissant. */
+.gb-sign:not([aria-disabled="true"]):hover .gb-sign__plate {
+  transform: rotate(-4deg) translateY(-3px);
+}
+
+/* =================== Bomb Squad : le boîtier =================== */
+
+.bb {
+  display: grid;
+  gap: 0;
+}
+
+.bb-case {
+  display: grid;
+  gap: var(--sp-3);
+  justify-items: center;
+  padding: var(--sp-4);
+  background: linear-gradient(180deg, var(--panel2), var(--panel));
+  border: 3px solid var(--orange);
+  border-radius: var(--r-option);
+  box-shadow: var(--glow-orange-inset);
+  transition: background-color var(--dur) var(--ease);
+}
+
+/* Explosion : le boîtier flashe en rouge, trois éclats puis il reste allumé. */
+.bb-case[data-blast="true"] {
+  border-color: var(--alarm);
+  box-shadow: var(--glow-alarm);
+  animation: bb-blast 420ms ease-in-out 3;
+}
+
+@keyframes bb-blast {
+  0%,
+  100% {
+    background: var(--panel);
+  }
+  50% {
+    background: var(--alarm);
+  }
+}
+
+/* L'afficheur : deux chiffres sept segments, purement visuels. */
+.bb-display {
+  display: flex;
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--bg);
+  border: 2px solid var(--line);
+  border-radius: var(--r-sm);
+}
+
+.bb-display__digits {
+  display: flex;
+  gap: 14px;
+}
+
+.bb-digit {
+  position: relative;
+  width: 26px;
+  height: 44px;
+}
+
+.bb-digit__seg {
+  position: absolute;
+  background: var(--steel);
+  border-radius: 2px;
+}
+
+.bb-digit__seg[data-on="true"] {
+  background: var(--orange);
+  box-shadow: var(--glow-orange);
+}
+
+/* Les sept segments : trois barres horizontales, quatre verticales. */
+.bb-digit__seg[data-seg="a"],
+.bb-digit__seg[data-seg="g"],
+.bb-digit__seg[data-seg="d"] {
+  left: 5px;
+  right: 5px;
+  height: 4px;
+}
+
+.bb-digit__seg[data-seg="a"] {
+  top: 0;
+}
+
+.bb-digit__seg[data-seg="g"] {
+  top: 20px;
+}
+
+.bb-digit__seg[data-seg="d"] {
+  bottom: 0;
+}
+
+.bb-digit__seg[data-seg="f"],
+.bb-digit__seg[data-seg="b"] {
+  top: 4px;
+  height: 16px;
+  width: 4px;
+}
+
+.bb-digit__seg[data-seg="e"],
+.bb-digit__seg[data-seg="c"] {
+  top: 24px;
+  height: 16px;
+  width: 4px;
+}
+
+.bb-digit__seg[data-seg="f"],
+.bb-digit__seg[data-seg="e"] {
+  left: 0;
+}
+
+.bb-digit__seg[data-seg="b"],
+.bb-digit__seg[data-seg="c"] {
+  right: 0;
+}
+
+/* Les étapes du boîtier : une diode par étape. */
+.bb-steps {
+  display: grid;
+  grid-template-columns: repeat(var(--bb-steps, 4), 26px);
+  gap: var(--sp-2);
+  list-style: none;
+}
+
+.bb-step {
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--steel);
+  transition: background-color var(--dur) var(--ease);
+}
+
+.bb-step[data-state="done"] {
+  background: var(--safe);
+  box-shadow: var(--glow-safe);
+}
+
+.bb-step[data-state="now"] {
+  background: var(--orange);
+  box-shadow: var(--glow-orange);
+}
+
+.bb-step[data-state="lost"] {
+  background: var(--alarm);
+  box-shadow: var(--glow-alarm);
+}
+
+/* =================== Bomb Squad : les câbles =================== */
+
+.bb-cables {
+  display: grid;
+  grid-template-columns: repeat(var(--bb-cables, 4), minmax(0, 1fr));
+  gap: var(--sp-2);
+  padding: 0 var(--sp-4);
+}
+
+/* Un câble : deux brins verticaux qui s'écartent quand on le sectionne. */
+.bb-cable {
+  position: relative;
+  min-height: 96px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.bb-cable[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.bb-cable__top,
+.bb-cable__bottom {
+  position: absolute;
+  left: calc(50% - 5px);
+  width: 10px;
+  border-radius: 3px;
+  background: var(--cyan);
+  transition: transform var(--dur) var(--ease);
+}
+
+.bb-cable__top {
+  top: 0;
+  height: 44px;
+}
+
+.bb-cable__bottom {
+  bottom: 0;
+  height: 44px;
+}
+
+/* Gaines : la couleur suit le RANG du câble, jamais son contenu. */
+.bb-cable[data-gaine="cyan"] .bb-cable__top,
+.bb-cable[data-gaine="cyan"] .bb-cable__bottom {
+  background: var(--cyan);
+}
+
+.bb-cable[data-gaine="magenta"] .bb-cable__top,
+.bb-cable[data-gaine="magenta"] .bb-cable__bottom {
+  background: var(--mag);
+}
+
+.bb-cable[data-gaine="yellow"] .bb-cable__top,
+.bb-cable[data-gaine="yellow"] .bb-cable__bottom {
+  background: var(--yel);
+}
+
+.bb-cable[data-gaine="orange"] .bb-cable__top,
+.bb-cable[data-gaine="orange"] .bb-cable__bottom {
+  background: var(--orange);
+}
+
+.bb-cable__num {
+  position: absolute;
+  top: calc(50% - 11px);
+  left: calc(50% - 13px);
+  width: 26px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: var(--r-sm);
+  font-family: var(--font-title);
+  font-size: 14px;
+  color: var(--text);
+}
+
+/* L'étincelle : un halo au point de coupe, plus large que la pastille pour
+   qu'elle reste visible derrière elle. */
+.bb-cable__spark {
+  position: absolute;
+  top: calc(50% - 19px);
+  left: calc(50% - 19px);
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-pill);
+  background: var(--yel);
+  box-shadow: var(--glow-yel);
+  opacity: 0;
+}
+
+.bb-cable:focus-visible .bb-cable__num {
+  border-color: var(--orange);
+  box-shadow: var(--glow-orange);
+}
+
+/* Sectionné : les deux bouts s'écartent du point de coupe. */
+.bb-cable[data-cut="true"] .bb-cable__top {
+  transform: translateY(-14px);
+}
+
+.bb-cable[data-cut="true"] .bb-cable__bottom {
+  transform: translateY(14px);
+}
+
+.bb-cable[data-picked="true"] .bb-cable__num {
+  outline: 3px solid var(--orange);
+  outline-offset: 2px;
+}
+
+/* Neutralisé : les bouts restent nets, la pastille passe au vert. */
+.bb-cable[data-reveal="safe"] .bb-cable__num {
+  background: var(--safe);
+  border-color: var(--safe);
+  color: var(--safe-ink);
+}
+
+/* Explosion : étincelle au point de coupe, pastille rouge. */
+.bb-cable[data-reveal="danger"] .bb-cable__num {
+  background: var(--alarm);
+  border-color: var(--alarm);
+  color: var(--alarm-ink);
+}
+
+.bb-cables[data-lost="true"] .bb-cable[data-reveal="danger"] .bb-cable__spark {
+  opacity: 1;
+  animation: bb-spark 520ms ease-out 2;
+}
+
+/* Le survol vient après les révélations, pour que la spécificité aille en croissant. */
+.bb-cable:not([aria-disabled="true"]):hover .bb-cable__num {
+  border-color: var(--orange);
+  box-shadow: var(--glow-orange);
+}
+
+@keyframes bb-spark {
+  0% {
+    opacity: 1;
+    transform: scale(0.4);
+  }
+  100% {
+    opacity: 0.2;
+    transform: scale(1.8);
+  }
+}
+
+/* Le socle où plongent tous les câbles. */
+.bb-base {
+  height: 14px;
+  background: var(--steel);
+  border: 2px solid var(--line);
+  border-radius: var(--r-sm);
+}
+
+/* =================== Mouvement réduit (Getaway, Bomb Squad) =================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .gb-roadway__lanes {
+    animation: none;
+  }
+
+  .gb-seg__car[data-crashed="true"] {
+    transform: none;
+  }
+
+  .gb-sign__plate,
+  .gb-sign__barrier,
+  .gb-chase__pip,
+  .bb-cable__top,
+  .bb-cable__bottom {
+    transition: none;
+  }
+
+  .gb-sign:focus-visible .gb-sign__plate {
+    transform: rotate(-4deg);
+  }
+
+  .gb-sign:not([aria-disabled="true"]):hover .gb-sign__plate {
+    transform: rotate(-4deg);
+  }
+
+  .bb-case[data-blast="true"] {
+    animation: none;
+    background: var(--alarm);
+  }
+
+  .bb-cables[data-lost="true"] .bb-cable[data-reveal="danger"] .bb-cable__spark {
+    animation: none;
   }
 }

@@ -145,6 +145,66 @@ describe("écran de jeu", () => {
     expect(screen.getByRole("list", { name: "Étape 2 sur 8" })).toBeInTheDocument();
   });
 
+  it("Getaway prend son plateau, son vocabulaire et son accent magenta", async () => {
+    baseApi()
+      .on("GET /api/games/getaway/current", {
+        json: {
+          round: {
+            id: 21,
+            game: "getaway",
+            mode: "cavale",
+            status: "playing",
+            step: 2,
+            maxSteps: 5,
+            betCents: 1000,
+            multiplier: 3.76,
+            nextMultiplier: 7.52,
+            cashoutCents: 3760,
+            payoutCents: 0,
+            createdAt: "2026-09-13 10:00:00",
+          },
+        },
+      })
+      .install();
+    renderApp("/jeux/getaway");
+
+    expect(await screen.findByRole("group", { name: "Choisis une route" })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Étape 3 sur 5" })).toBeInTheDocument();
+    expect(screen.getByText("Poursuite 2 / 5")).toBeInTheDocument();
+    const encaisser = screen.getByRole("button", { name: /Se planquer avec 37,60 coins/ });
+    expect(encaisser).toHaveAttribute("data-variant", "accent-magenta");
+  });
+
+  it("Bomb Squad prend son boîtier, son vocabulaire et son accent orange", async () => {
+    baseApi()
+      .on("GET /api/games/bomb-squad/current", {
+        json: {
+          round: {
+            id: 34,
+            game: "bomb-squad",
+            mode: "confirme",
+            status: "playing",
+            step: 1,
+            maxSteps: 4,
+            betCents: 1000,
+            multiplier: 1.92,
+            nextMultiplier: 3.84,
+            cashoutCents: 1920,
+            payoutCents: 0,
+            createdAt: "2026-09-13 10:00:00",
+          },
+        },
+      })
+      .install();
+    renderApp("/jeux/bomb-squad");
+
+    expect(await screen.findByRole("group", { name: "Choisis un câble" })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Étape 2 sur 4" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Reste 3 étapes")).toBeInTheDocument();
+    const encaisser = screen.getByRole("button", { name: /Se retirer avec 19,20 coins/ });
+    expect(encaisser).toHaveAttribute("data-variant", "accent-orange");
+  });
+
   it("propose la recharge gratuite quand le solde est trop bas", async () => {
     const api = baseApi()
       .on("GET /api/auth/me", { json: { user: { id: 1, username: "lucas" }, balanceCents: 400 } })

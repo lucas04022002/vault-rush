@@ -98,6 +98,78 @@
   box-shadow: 0 2px 0 var(--cyan-shadow);
 }
 
+/* Accent de la cavale : le bouton principal de Getaway. */
+.btn[data-variant="accent-magenta"] {
+  background: var(--mag);
+  color: var(--mag-ink);
+  box-shadow: var(--shadow-hard-mag);
+  text-transform: uppercase;
+  font-family: var(--font-title);
+  font-size: 15px;
+}
+
+.btn[data-variant="accent-magenta"]:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--mag-shadow);
+}
+
+/* Accent du boîtier : le bouton principal de Bomb Squad. */
+.btn[data-variant="accent-orange"] {
+  background: var(--orange);
+  color: var(--orange-ink);
+  box-shadow: var(--shadow-hard-orange);
+  text-transform: uppercase;
+  font-family: var(--font-title);
+  font-size: 15px;
+}
+
+.btn[data-variant="accent-orange"]:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--orange-shadow);
+}
+
+/* Accent glacé : le bouton principal de Vault Code. */
+.btn[data-variant="accent-ice"] {
+  background: var(--ice);
+  color: var(--ice-ink);
+  box-shadow: var(--shadow-hard-ice);
+}
+
+/* Accent du tapis : le bouton principal de Blackjack Express. */
+.btn[data-variant="accent-felt"] {
+  background: var(--felt);
+  color: var(--felt-ink);
+  box-shadow: var(--shadow-hard-felt);
+  text-transform: uppercase;
+  font-family: var(--font-title);
+  font-size: 15px;
+}
+
+/* Accent du diamant : le bouton principal de Diamond Drop. */
+.btn[data-variant="accent-gem"] {
+  background: var(--gem);
+  color: var(--gem-ink);
+  box-shadow: var(--shadow-hard-gem);
+  text-transform: uppercase;
+  font-family: var(--font-title);
+  font-size: 15px;
+}
+
+.btn[data-variant="accent-ice"]:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--ice-shadow);
+}
+
+.btn[data-variant="accent-gem"]:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--gem-shadow);
+}
+
+.btn[data-variant="accent-felt"]:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--felt-shadow);
+}
+
 .btn[data-variant="secondary"] {
   background: transparent;
   color: var(--cyan);
@@ -495,6 +567,28 @@
   color: var(--cyan);
 }
 
+/* Le titre magenta ne peut pas garder son ombre magenta : elle disparaîtrait. */
+.pagetitle[data-accent="magenta"] .pagetitle__h {
+  color: var(--mag);
+  text-shadow: 3px 3px 0 var(--mag-shadow);
+}
+
+.pagetitle[data-accent="orange"] .pagetitle__h {
+  color: var(--orange);
+}
+
+.pagetitle[data-accent="ice"] .pagetitle__h {
+  color: var(--ice);
+}
+
+.pagetitle[data-accent="gem"] .pagetitle__h {
+  color: var(--gem);
+}
+
+.pagetitle[data-accent="felt"] .pagetitle__h {
+  color: var(--felt);
+}
+
 /* ---------------- GameCard ---------------- */
 
 .gamecard {
@@ -527,6 +621,26 @@
 
 .gamecard[data-accent="cyan"] .gamecard__title {
   color: var(--cyan);
+}
+
+.gamecard[data-accent="magenta"] .gamecard__title {
+  color: var(--mag);
+}
+
+.gamecard[data-accent="orange"] .gamecard__title {
+  color: var(--orange);
+}
+
+.gamecard[data-accent="ice"] .gamecard__title {
+  color: var(--ice);
+}
+
+.gamecard[data-accent="gem"] .gamecard__title {
+  color: var(--gem);
+}
+
+.gamecard[data-accent="felt"] .gamecard__title {
+  color: var(--felt);
 }
 
 .gamecard__tagline {

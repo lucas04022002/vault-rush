@@ -29,6 +29,8 @@ export type GameRound = {
   multiplier: number;
   status: RoundStatus;
   payoutCents: number;
+  /** État secret du moteur, sérialisé en JSON. NULL pour une partie d'avant 0003. */
+  stateJson: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -68,6 +70,7 @@ type RoundRow = {
   multiplier: number;
   status: string;
   payout_cents: number;
+  state_json: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -95,6 +98,7 @@ function mapRound(r: RoundRow): GameRound {
     multiplier: r.multiplier,
     status: r.status as RoundStatus,
     payoutCents: r.payout_cents,
+    stateJson: r.state_json ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -162,14 +166,15 @@ export function refillCooldownSeconds(db: Db, userId: number): number {
 // --- Parties ---
 export function createRound(
   db: Db,
-  data: Pick<GameRound, "userId" | "game" | "betCents" | "mode">,
+  data: Pick<GameRound, "userId" | "game" | "betCents" | "mode"> & { stateJson?: string | null },
 ): GameRound {
   const info = db
     .prepare(
-      `INSERT INTO rounds (user_id, game, bet_cents, mode, step, multiplier, status, payout_cents)
-       VALUES (?, ?, ?, ?, 0, 1, 'playing', 0)`,
+      `INSERT INTO rounds
+         (user_id, game, bet_cents, mode, step, multiplier, status, payout_cents, state_json)
+       VALUES (?, ?, ?, ?, 0, 1, 'playing', 0, ?)`,
     )
-    .run(data.userId, data.game, data.betCents, data.mode);
+    .run(data.userId, data.game, data.betCents, data.mode, data.stateJson ?? null);
   return getRound(db, Number(info.lastInsertRowid))!;
 }
 
@@ -188,9 +193,17 @@ export function getActiveRound(db: Db, userId: number, game: string): GameRound 
 export function saveRound(db: Db, round: GameRound): void {
   db.prepare(
     `UPDATE rounds
-        SET step = ?, multiplier = ?, status = ?, payout_cents = ?, updated_at = datetime('now')
+        SET step = ?, multiplier = ?, status = ?, payout_cents = ?, state_json = ?,
+            updated_at = datetime('now')
       WHERE id = ?`,
-  ).run(round.step, round.multiplier, round.status, round.payoutCents, round.id);
+  ).run(
+    round.step,
+    round.multiplier,
+    round.status,
+    round.payoutCents,
+    round.stateJson ?? null,
+    round.id,
+  );
 }
 
 // --- Journal ---

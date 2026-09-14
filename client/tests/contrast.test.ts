@@ -66,6 +66,24 @@ describe("contraste WCAG des jetons", () => {
     ["vert sur panneau (bénéfice)", "--safe", "--panel"],
     ["jaune sur panneau secondaire (solde)", "--yel", "--panel2"],
     ["magenta sur panneau (étiquettes)", "--mag", "--panel"],
+    ["encre magenta sur magenta (bouton principal de Getaway)", "--mag-ink", "--mag"],
+    ["encre orange sur orange (bouton principal de Bomb Squad)", "--orange-ink", "--orange"],
+    ["orange sur panneau (gaine de câble, afficheur)", "--orange", "--panel"],
+    ["orange sur panneau secondaire", "--orange", "--panel2"],
+    ["orange sur fond (boîtier)", "--orange", "--bg"],
+    ["glace sur panneau (afficheur et verrous de Vault Code)", "--ice", "--panel"],
+    ["encre glace sur glace (pavé numérique de Vault Code)", "--ice-ink", "--ice"],
+    ["améthyste sur panneau (clous, cases de Diamond Drop)", "--gem", "--panel"],
+    ["encre améthyste sur améthyste (bouton principal de Diamond Drop)", "--gem-ink", "--gem"],
+    // Blackjack Express : le tapis, et surtout les cartes — le rang doit se lire.
+    ["encre verte sur vert (bouton de Blackjack Express)", "--felt-ink", "--felt"],
+    ["encre de carte sur face de carte (pique et trèfle)", "--card-ink", "--card-face"],
+    ["rouge de carte sur face de carte (cœur et carreau)", "--card-red", "--card-face"],
+    ["texte sur tapis (totaux et noms des mains)", "--text", "--felt-table"],
+    ["texte secondaire sur tapis", "--dim", "--felt-table"],
+    ["vert sur tapis (le total d'une main)", "--felt", "--felt-table"],
+    ["vert sur panneau (résultat de la manche)", "--felt", "--panel"],
+    ["vert sur panneau secondaire", "--felt", "--panel2"],
   ];
 
   for (const [label, fg, bg] of normal) {
@@ -80,6 +98,11 @@ describe("contraste WCAG des jetons", () => {
   const large: [string, string, string][] = [
     ["titre jaune sur fond", "--yel", "--bg"],
     ["titre cyan sur fond", "--cyan", "--bg"],
+    ["titre magenta sur fond (Getaway)", "--mag", "--bg"],
+    ["titre orange sur fond (Bomb Squad)", "--orange", "--bg"],
+    ["titre glace sur fond (Vault Code)", "--ice", "--bg"],
+    ["titre améthyste sur fond (Diamond Drop)", "--gem", "--bg"],
+    ["titre vert sur fond (Blackjack Express)", "--felt", "--bg"],
   ];
 
   for (const [label, fg, bg] of large) {

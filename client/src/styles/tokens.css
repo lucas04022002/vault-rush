@@ -17,14 +17,18 @@
   --line: #3A2B5C;        /* bordures (2 px) */
   --steel: #33265A;       /* acier des portes de coffre et des dalles d'étage */
 
-  --mag: #FF3D8A;         /* accent chaud : sélection, ombre des titres */
+  --mag: #FF3D8A;         /* accent chaud : sélection, ombre des titres, Getaway */
   --mag-ink: #2A0A18;     /* texte sur magenta (AA 5,4:1) */
+  --mag-shadow: #A31047;  /* ombre dure du bouton magenta (Getaway) */
   --cyan: #35E5FF;        /* accent froid : marque, options, secondaire */
   --cyan-ink: #062A31;    /* texte sur cyan (AA 10,0:1) */
   --cyan-shadow: #12839A; /* ombre dure du bouton cyan (Laser Grid) */
   --yel: #FFD23F;         /* action principale, solde, étape courante */
   --yel-ink: #2A1B00;     /* texte sur jaune (AA 11,6:1) */
   --yel-shadow: #B58A00;  /* ombre dure du bouton principal */
+  --orange: #FF8A3D;         /* accent de Bomb Squad : boîtier, afficheur, gaine */
+  --orange-ink: #2B1000;     /* texte sur orange (AA 7,6:1) */
+  --orange-shadow: #B35A18;  /* ombre dure du bouton orange (Bomb Squad) */
 
   --text: #FFF6FA;        /* texte */
   --dim: #A99CC4;         /* texte secondaire, étiquettes */
@@ -32,6 +36,25 @@
   --safe-ink: #04261A;    /* texte sur vert (AA 11,0:1) */
   --alarm: #FF4D4D;       /* alarme, perte, erreurs */
   --alarm-ink: #2A0000;   /* texte sur rouge (AA 5,8:1) */
+  /* Glace : l'accent de Vault Code — afficheur du coffre, verrous, pavé. */
+  --ice: #9BE8FF;         /* accent glacé : titre, verrous, pavé numérique */
+  --ice-ink: #062532;     /* texte sur glace (AA 11,6:1) */
+  --ice-shadow: #3E93AD;  /* ombre dure du bouton glace (Vault Code) */
+
+  /* Accent de Diamond Drop : le diamant, ses clous et ses cases chaudes. */
+  --gem: #C08BFF;         /* améthyste : diamant, clous, cases extrêmes */
+  --gem-ink: #1E0B33;     /* texte sur améthyste (AA 7,3:1) */
+  --gem-shadow: #7B45B8;  /* ombre dure du bouton améthyste (Diamond Drop) */
+
+  /* Blackjack Express : le tapis du croupier et les cartes posées dessus. */
+  --felt: #3FBF7F;        /* accent du jeu : titre, bouton, totaux */
+  --felt-ink: #052316;    /* texte sur vert tapis (AA 7,1:1) */
+  --felt-shadow: #1F7A4E; /* ombre dure du bouton vert */
+  --felt-table: #0B3A26;  /* le drap de la table, sous les cartes */
+  --card-face: #F4ECE2;   /* la face d'une carte */
+  --card-ink: #16121F;    /* pique et trèfle sur la face (AA 15,7:1) */
+  --card-red: #B3122B;    /* cœur et carreau sur la face (AA 5,9:1) */
+  --card-back: #2A1650;   /* le dos d'une carte, motif au jeton --mag */
 
   /* ---- Lueurs et ombres (les rgba() vivent ici, nulle part ailleurs) ---- */
   --glow-mag: 0 0 14px rgba(255, 61, 138, 0.6);
@@ -41,8 +64,20 @@
   --glow-cyan-inset: inset 0 0 18px rgba(53, 229, 255, 0.15);
   --glow-safe: 0 0 14px rgba(65, 240, 165, 0.45);
   --glow-alarm: 0 0 14px rgba(255, 77, 77, 0.55);
+  --glow-orange: 0 0 14px rgba(255, 138, 61, 0.5);
+  --glow-orange-inset: inset 0 0 18px rgba(255, 138, 61, 0.15);
+  --glow-ice: 0 0 14px rgba(155, 232, 255, 0.45);
+  --glow-ice-inset: inset 0 0 18px rgba(155, 232, 255, 0.12);
+  --glow-gem: 0 0 14px rgba(192, 139, 255, 0.55);
+  --glow-gem-wide: 0 0 30px rgba(192, 139, 255, 0.3);
   --shadow-hard: 0 6px 0 var(--yel-shadow);
   --shadow-hard-cyan: 0 6px 0 var(--cyan-shadow);
+  --shadow-hard-mag: 0 6px 0 var(--mag-shadow);
+  --shadow-hard-orange: 0 6px 0 var(--orange-shadow);
+  --shadow-hard-ice: 0 6px 0 var(--ice-shadow);
+  --shadow-hard-gem: 0 6px 0 var(--gem-shadow);
+  --shadow-hard-felt: 0 6px 0 var(--felt-shadow);
+  --glow-felt: 0 0 14px rgba(63, 191, 127, 0.45);
   --page-halo: radial-gradient(1200px 500px at 50% -10%, var(--bg-halo) 0%, var(--bg) 60%);
 
   /* ---- Polices ---- */

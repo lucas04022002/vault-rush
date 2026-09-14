@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -10,12 +11,18 @@ import {
   playStep,
   type Outcome,
 } from "../src/engine/ladder.ts";
-import { GAMES, GAME_IDS, isGameId } from "../src/engine/definitions.ts";
+import { GAMES, GAME_IDS, LADDER_GAME_IDS, isGameId } from "../src/engine/definitions.ts";
 import { MAX_PAYOUT_CENTS } from "../src/money.ts";
 
 /**
  * Moteur « jeu d'échelle », testé sans HTTP ni base : des fonctions pures,
  * plus le tirage (le seul endroit où le hasard entre).
+ */
+
+/**
+ * Les jeux servis par CE moteur. `GAME_IDS` liste tous les jeux, genres
+ * confondus (Vault Code n'est pas une échelle) : les boucles de ce fichier
+ * parcourent donc `GAMES`, pas `GAME_IDS`.
  */
 
 // Valeurs produites par l'ancien game.algorithm.ts (Number(x.toFixed(2))) :
@@ -30,6 +37,18 @@ const LASER_GRID_ATTENDU: Record<string, number[]> = {
   calme: [1.31, 1.74, 2.32, 3.1, 4.13, 5.51, 7.34, 9.79],
   tendu: [1.92, 3.84, 7.68, 15.36, 30.72, 61.44, 122.88, 245.76],
   mortel: [2.35, 5.87, 14.69, 36.72, 91.8, 229.49, 573.73, 1434.33],
+};
+
+const GETAWAY_ATTENDU: Record<string, number[]> = {
+  tranquille: [1.31, 1.74, 2.32, 3.1, 4.13],
+  nerveux: [1.44, 2.16, 3.24, 4.86, 7.29],
+  cavale: [1.88, 3.76, 7.52, 15.04, 30.08],
+};
+
+const BOMB_SQUAD_ATTENDU: Record<string, number[]> = {
+  novice: [1.31, 1.74, 2.32, 3.1],
+  confirme: [1.92, 3.84, 7.68, 15.36],
+  demineur: [2.35, 5.87, 14.69, 36.72],
 };
 
 test("régression : les multiplicateurs de Vault Rush sont inchangés (3 modes x 6 étages)", () => {
@@ -48,7 +67,7 @@ test("régression : les multiplicateurs de Vault Rush sont inchangés (3 modes x
 });
 
 test("buildMultipliers garde le même avantage de la maison à chaque étape", () => {
-  for (const id of GAME_IDS) {
+  for (const id of LADDER_GAME_IDS) {
     const def = GAMES[id];
     for (const mode of def.modes) {
       const p = mode.safeOptions / mode.options;
@@ -97,9 +116,92 @@ test("Laser Grid : 8 lignes, trois modes, chances et multiplicateurs attendus", 
   }
 });
 
+test("Getaway : 5 tronçons, trois modes, multiplicateurs figés", () => {
+  const def = GAMES.getaway;
+  assert.equal(def.name, "Getaway");
+  assert.equal(def.steps, 5);
+  assert.deepEqual(def.labels, {
+    step: "tronçon",
+    option: "route",
+    safe: "voie libre",
+    danger: "barrage",
+    cashout: "Se planquer",
+  });
+
+  assert.deepEqual(
+    def.modes.map((m) => ({
+      id: m.id,
+      label: m.label,
+      options: m.options,
+      safeOptions: m.safeOptions,
+      houseEdge: m.houseEdge,
+    })),
+    [
+      { id: "tranquille", label: "Tranquille", options: 4, safeOptions: 3, houseEdge: 0.02 },
+      { id: "nerveux", label: "Nerveux", options: 3, safeOptions: 2, houseEdge: 0.04 },
+      { id: "cavale", label: "Cavale", options: 4, safeOptions: 2, houseEdge: 0.06 },
+    ],
+  );
+
+  for (const mode of def.modes) {
+    const mults = buildMultipliers(mode.safeOptions, mode.options, mode.houseEdge, def.steps);
+    assert.equal(mults.length, 5);
+    assert.deepEqual(mults, GETAWAY_ATTENDU[mode.id], `mode ${mode.id}`);
+  }
+});
+
+test("Bomb Squad : 4 étapes, trois modes, multiplicateurs figés", () => {
+  const def = GAMES["bomb-squad"];
+  assert.equal(def.name, "Bomb Squad");
+  assert.equal(def.steps, 4);
+  assert.deepEqual(def.labels, {
+    step: "étape",
+    option: "câble",
+    safe: "neutralisé",
+    danger: "explosion",
+    cashout: "Se retirer",
+  });
+
+  assert.deepEqual(
+    def.modes.map((m) => ({
+      id: m.id,
+      label: m.label,
+      options: m.options,
+      safeOptions: m.safeOptions,
+      houseEdge: m.houseEdge,
+    })),
+    [
+      { id: "novice", label: "Novice", options: 4, safeOptions: 3, houseEdge: 0.02 },
+      { id: "confirme", label: "Confirmé", options: 4, safeOptions: 2, houseEdge: 0.04 },
+      { id: "demineur", label: "Démineur", options: 5, safeOptions: 2, houseEdge: 0.06 },
+    ],
+  );
+
+  for (const mode of def.modes) {
+    const mults = buildMultipliers(mode.safeOptions, mode.options, mode.houseEdge, def.steps);
+    assert.equal(mults.length, 4);
+    assert.deepEqual(mults, BOMB_SQUAD_ATTENDU[mode.id], `mode ${mode.id}`);
+  }
+});
+
+test("les quatre jeux d'échelle ont des identifiants, des modes et des libellés distincts", () => {
+  const def = LADDER_GAME_IDS.map((id) => GAMES[id]);
+  assert.deepEqual(
+    def.map((d) => d.id),
+    [...LADDER_GAME_IDS],
+  );
+  // Deux jeux ne partagent jamais le mot de leur danger : le bilan resterait ambigu.
+  const dangers = def.map((d) => d.labels.danger);
+  assert.equal(new Set(dangers).size, dangers.length);
+  for (const d of def) {
+    assert.ok(d.tagline.length > 0, `${d.id} sans accroche`);
+    assert.equal(new Set(d.modes.map((m) => m.id)).size, d.modes.length, `${d.id}`);
+  }
+});
+
 test("drawOptions tire exactement le bon nombre de cases sûres, à une place variable", () => {
   const TIRAGES = 10_000;
-  for (const id of GAME_IDS) {
+  for (const id of LADDER_GAME_IDS) {
     const def = GAMES[id];
     for (const mode of def.modes) {
       let sures = 0;
@@ -205,27 +307,64 @@ test("configFor décrit le jeu pour le client", () => {
   assert.deepEqual(calme.multipliers, LASER_GRID_ATTENDU.calme);
 });
 
-test("isGameId ne reconnaît que les deux jeux livrés", () => {
-  assert.ok(isGameId("vault-rush"));
-  assert.ok(isGameId("laser-grid"));
+test("isGameId ne reconnaît que les jeux livrés", () => {
+  for (const id of GAME_IDS) assert.ok(isGameId(id), id);
   assert.ok(!isGameId("poker"));
   assert.ok(!isGameId(""));
   assert.ok(!isGameId(undefined));
-  assert.deepEqual([...GAME_IDS], ["vault-rush", "laser-grid"]);
+  // Les jeux d'échelle sont les quatre premiers ; les autres genres ont leur
+  // propre moteur et n'ont pas de définition ici.
+  assert.deepEqual(
+    [...LADDER_GAME_IDS],
+    ["vault-rush", "laser-grid", "getaway", "bomb-squad"],
+  );
+  assert.ok(GAME_IDS.length >= LADDER_GAME_IDS.length);
 });
 
-// --- LA preuve : le VRAI hasard, mesuré ---
+// --- LA preuve : le hasard du moteur, mesuré, et REJOUABLE ---
+
+/*
+ * Ces deux mesures tiraient leur hasard de `Math.random` ET du générateur
+ * cryptographique du moteur : elles n'étaient donc pas rejouables, et la
+ * seconde tombait environ une fois sur deux (quinze couples jeu/mode, chacun
+ * comparé à quatre écarts-types calculés sur une formule approchée du second
+ * moment — trop serrée). Un test qui échoue au hasard finit par être ignoré :
+ * les deux tirent maintenant d'une graine fixe, et la tolérance de la seconde
+ * vient de l'écart-type MESURÉ des gains, pas d'une formule. Le calibrage des
+ * jeux, lui, n'a pas bougé d'un centime.
+ */
+
+/** Générateur déterministe (mulberry32), comme le calibrage de Vault Code. */
+function seeded(graine: number): () => number {
+  let a = graine;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Le tirage du moteur, alimenté par la graine et non par `crypto`. */
+function drawSeeded(hasard: () => number) {
+  return (options: number, safeOptions: number) =>
+    drawOptions(options, safeOptions, (max) => Math.floor(hasard() * max));
+}
 
 test("le tirage réel donne le bon taux de réussite par étape", () => {
   // Contrôle serré : c'est ce taux, combiné aux multiplicateurs, qui fixe le RTP.
   const COUPS = 50_000;
-  for (const id of GAME_IDS) {
+  for (const id of LADDER_GAME_IDS) {
     const def = GAMES[id];
     for (const mode of def.modes) {
+      const hasard = seeded(20_260_913);
+      const draw = drawSeeded(hasard);
+
       let reussites = 0;
       for (let i = 0; i < COUPS; i++) {
-        const choix = Math.floor(Math.random() * mode.options);
-        if (playStep(def, mode, 0, choix).outcome === "safe") reussites += 1;
+        const choix = Math.floor(hasard() * mode.options);
+        if (playStep(def, mode, 0, choix, draw).outcome === "safe") reussites += 1;
       }
       const p = mode.safeOptions / mode.options;
       const observe = reussites / COUPS;
@@ -242,28 +381,28 @@ test("le tirage réel donne le bon taux de réussite par étape", () => {
 test("simulation Monte Carlo : le RTP réel converge vers la cible", () => {
   const PARTIES = 200_000;
 
-  for (const id of GAME_IDS) {
+  for (const id of LADDER_GAME_IDS) {
     const def = GAMES[id];
     for (const mode of def.modes) {
       const mise = 100; // centimes
-      const p = mode.safeOptions / mode.options;
-      const mults = Array.from({ length: def.steps }, (_, n) =>
-        multiplierAt(mode, def.steps, n + 1),
-      );
+      const hasard = seeded(20_260_914);
+      const draw = drawSeeded(hasard);
 
       let totalMise = 0;
       let totalGain = 0;
+      // Somme des carrés : elle donne l'écart-type RÉEL de cette stratégie.
+      let carres = 0;
 
       for (let r = 0; r < PARTIES; r++) {
         totalMise += mise;
         // Stratégie : viser une étape au hasard, puis encaisser.
-        const viseeEtape = 1 + Math.floor(Math.random() * def.steps);
+        const viseeEtape = 1 + Math.floor(hasard() * def.steps);
         let step = 0;
         let vivant = true;
 
         for (let s = 0; s < viseeEtape; s++) {
-          const choix = Math.floor(Math.random() * mode.options);
-          const res = playStep(def, mode, step, choix);
+          const choix = Math.floor(hasard() * mode.options);
+          const res = playStep(def, mode, step, choix, draw);
           if (res.outcome === "danger") {
             vivant = false;
             break;
@@ -271,20 +410,43 @@ test("simulation Monte Carlo : le RTP réel converge vers la cible", () => {
           step = res.nextStep;
         }
 
-        if (vivant) totalGain += cashoutCents(mise, multiplierAt(mode, def.steps, step));
+        const gain = vivant ? cashoutCents(mise, multiplierAt(mode, def.steps, step)) : 0;
+        totalGain += gain;
+        carres += (gain / mise) ** 2;
       }
 
       const rtp = totalGain / totalMise;
       const cible = 1 - mode.houseEdge;
-      // Les gros multiplicateurs sont rares : la tolérance suit l'écart-type
-      // réel de cette stratégie, sinon le test échouerait au hasard.
-      const moment2 =
-        mults.reduce((acc, m, n) => acc + m * m * Math.pow(p, n + 1), 0) / def.steps;
-      const tolerance = 4 * Math.sqrt((moment2 - cible * cible) / PARTIES);
+      const variance = Math.max(carres / PARTIES - rtp * rtp, 0);
+      const tolerance = 4 * Math.sqrt(variance / PARTIES);
       assert.ok(
         Math.abs(rtp - cible) < tolerance,
         `[${id}/${mode.id}] RTP réel=${(rtp * 100).toFixed(2)}% vs cible=${(cible * 100).toFixed(2)}% (±${(tolerance * 100).toFixed(2)})`,
       );
     }
   }
+});
+
+test("les mesures sont rejouables, et plus aucune ne tire de Math.random", () => {
+  // La garde se lit elle-même : on compte les APPELS, pas les mentions, sinon
+  // ce commentaire-ci ferait tomber le test.
+  const source = readFileSync(new URL("./engine.test.ts", import.meta.url), "utf8");
+  const appels = source.split(`Math${"."}random(`).length - 1;
+  assert.equal(appels, 0, "un appel a Math.random est revenu dans engine.test.ts");
+
+  const compte = (graine: number) => {
+    const hasard = seeded(graine);
+    const def = GAMES["vault-rush"];
+    const mode = def.modes[0];
+    const draw = drawSeeded(hasard);
+    let surs = 0;
+    for (let i = 0; i < 2_000; i++) {
+      const choix = Math.floor(hasard() * mode.options);
+      if (playStep(def, mode, 0, choix, draw).outcome === "safe") surs += 1;
+    }
+    return surs;
+  };
+  // Deux passages de la même graine donnent le même chiffre ; deux graines non.
+  assert.equal(compte(7), compte(7));
+  assert.notEqual(compte(7), compte(8));
 });

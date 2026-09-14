@@ -4,26 +4,27 @@ import { withTransaction } from "../../database/db.ts";
 import * as store from "../../database/store.ts";
 import type { GameRound } from "../../database/store.ts";
 import {
-  cashoutCents,
-  findMode,
-  multiplierAt,
-  playStep,
-  type GameDefinition,
-  type ModeDefinition,
-  type Outcome,
-} from "../../engine/ladder.ts";
+  EngineError,
+  type EngineResult,
+  type GameEngine,
+  maxStepsFor,
+} from "../../engine/types.ts";
 import { HttpError } from "../../http/errors.ts";
-import { toCents } from "../../money.ts";
+import { payoutFor, toCents } from "../../money.ts";
 import * as wallet from "../wallet/wallet.service.ts";
 
 /**
- * Orchestration d'une partie, quel que soit le jeu.
+ * Orchestration d'une partie, quel que soit le JEU.
+ *
+ * Ce fichier ne connaît aucun jeu : il ne sait que miser, débiter, faire
+ * avancer un moteur, encaisser et journaliser. Tout ce qui décide
+ * gagné/perdu/combien vit dans le moteur (`engine/…`).
  *
  * Règles tenues ici :
- * - l'état de la partie (mise, étape, statut) vit en base, jamais chez le client ;
+ * - l'état de la partie (mise, étape, état secret, statut) vit en base, jamais
+ *   chez le client, et seul `engine.view(state)` en sort ;
  * - une seule partie active par joueur ET par jeu (garantie aussi par un index unique) ;
  * - chaque `play` annonce l'étape qu'il croit jouer : un double clic ne rejoue rien ;
- * - la dernière étape réussie encaisse toute seule ;
  * - INVARIANT : lecture de la partie, contrôles, tirage du hasard et écriture se
  *   font dans la MÊME transaction — sinon deux requêtes simultanées (ou deux
  *   répliques) pourraient jouer deux fois la même étape.
@@ -38,32 +39,51 @@ export type RoundDto = {
   maxSteps: number;
   betCents: number;
   multiplier: number;
-  /** Multiplicateur de l'étape suivante, `null` si la partie est finie. */
+  /** Multiplicateur de l'étape suivante, `null` si la partie est finie ou sans échelle. */
   nextMultiplier: number | null;
   /** Ce que vaut un encaissement maintenant (gain réel une fois la partie finie). */
   cashoutCents: number;
   payoutCents: number;
+  /** L'état PUBLIC du jeu : ce que le moteur accepte de montrer. */
+  view: unknown;
   createdAt: string;
   finishedAt?: string;
 };
 
-/** Le mode de la partie, ou 400 : une partie héritée peut porter un mode inconnu. */
-function requireMode(def: GameDefinition, modeId: string): ModeDefinition {
-  const mode = findMode(def, modeId);
-  if (!mode) {
-    throw new HttpError(400, "unknown_mode", { modes: def.modes.map((m) => m.id) });
+/** Traduit un refus du moteur en réponse HTTP : le moteur ne connaît pas Express. */
+function fromEngine<T>(action: () => T): T {
+  try {
+    return action();
+  } catch (err) {
+    if (err instanceof EngineError) throw new HttpError(err.status, err.code, err.details);
+    throw err;
   }
-  return mode;
 }
 
-export function toRoundDto(def: GameDefinition, round: GameRound): RoundDto {
-  const mode = findMode(def, round.mode);
+/**
+ * L'état secret d'une partie. Une partie ouverte avant la migration `0003`
+ * n'a pas de `state_json` : son moteur le reconstruit depuis les colonnes.
+ */
+function stateOf(engine: GameEngine, round: GameRound): unknown {
+  if (round.stateJson !== null) return JSON.parse(round.stateJson) as unknown;
+  if (!engine.restore) {
+    throw new HttpError(500, "round_state_missing", { game: round.game });
+  }
+  return fromEngine(() =>
+    // biome-ignore lint/style/noNonNullAssertion: présence vérifiée juste au-dessus.
+    engine.restore!({ mode: round.mode, step: round.step, multiplier: round.multiplier }),
+  );
+}
+
+export function toRoundDto(engine: GameEngine, round: GameRound): RoundDto {
+  const state = stateOf(engine, round);
   const enCours = round.status === "playing";
-  const encaissable = enCours
-    ? round.step > 0
-      ? cashoutCents(round.betCents, round.multiplier)
-      : 0
-    : round.payoutCents;
+  const encaissable =
+    enCours && engine.canCashout && round.step > 0
+      ? payoutFor(round.betCents, round.multiplier)
+      : enCours
+        ? 0
+        : round.payoutCents;
 
   return {
     id: round.id,
@@ -71,109 +91,100 @@ export function toRoundDto(def: GameDefinition, round: GameRound): RoundDto {
     mode: round.mode,
     status: round.status,
     step: round.step,
-    maxSteps: def.steps,
+    // Le mode peut être plus court que le jeu (Vault Code : 5 essais en Sec).
+    maxSteps: maxStepsFor(engine, round.mode),
     betCents: round.betCents,
     multiplier: round.multiplier,
-    nextMultiplier:
-      enCours && mode && round.step < def.steps ? multiplierAt(mode, def.steps, round.step + 1) : null,
+    nextMultiplier: enCours ? (engine.nextMultiplier?.(state) ?? null) : null,
     cashoutCents: encaissable,
     payoutCents: round.payoutCents,
+    view: fromEngine(() => engine.view(state)),
     createdAt: round.createdAt,
     finishedAt: enCours ? undefined : round.updatedAt,
   };
 }
 
-export function currentRound(ctx: AppContext, def: GameDefinition, user: SessionUser): RoundDto | null {
-  const round = store.getActiveRound(ctx.db, user.id, def.id);
-  return round ? toRoundDto(def, round) : null;
+export function currentRound(
+  ctx: AppContext,
+  engine: GameEngine,
+  user: SessionUser,
+): RoundDto | null {
+  const round = store.getActiveRound(ctx.db, user.id, engine.id);
+  return round ? toRoundDto(engine, round) : null;
 }
 
 export type StartInput = { betCoins: unknown; mode: string };
 
 export function startRound(
   ctx: AppContext,
-  def: GameDefinition,
+  engine: GameEngine,
   user: SessionUser,
   input: StartInput,
 ): RoundDto {
   // Mise et mode sont normalisés (et refusés) AVANT d'ouvrir quoi que ce soit en base.
   const betCents = toCents(input.betCoins);
-  const mode = requireMode(def, input.mode);
+  const modes = engine.config().modes;
+  if (!modes.some((mode) => mode.id === input.mode)) {
+    throw new HttpError(400, "unknown_mode", { modes: modes.map((m) => m.id) });
+  }
 
   return withTransaction(ctx.db, () => {
-    const active = store.getActiveRound(ctx.db, user.id, def.id);
-    if (active) throw new HttpError(409, "round_active", { round: toRoundDto(def, active) });
+    const active = store.getActiveRound(ctx.db, user.id, engine.id);
+    if (active) throw new HttpError(409, "round_active", { round: toRoundDto(engine, active) });
 
+    const state = fromEngine(() => engine.start(input.mode, ctx.rng));
     const round = store.createRound(ctx.db, {
       userId: user.id,
-      game: def.id,
+      game: engine.id,
       betCents,
-      mode: mode.id,
+      mode: input.mode,
+      stateJson: JSON.stringify(state),
     });
     wallet.debit(ctx.db, user.id, betCents, "bet", round.id);
-    return toRoundDto(def, round);
+    return toRoundDto(engine, round);
   });
 }
 
 /** Charge une partie du joueur connecté, pour CE jeu (404 sinon). */
 function ownedRound(
   ctx: AppContext,
-  def: GameDefinition,
+  engine: GameEngine,
   user: SessionUser,
   roundId: number,
 ): GameRound {
   const round = store.getRound(ctx.db, roundId);
-  if (!round || round.userId !== user.id || round.game !== def.id) {
+  if (!round || round.userId !== user.id || round.game !== engine.id) {
     throw new HttpError(404, "round_not_found");
   }
   return round;
 }
 
-export type PlayInput = { roundId: number; step: number; option: number };
-export type PlayResponse = { round: RoundDto; revealed: Outcome[]; outcome: Outcome };
+export type PlayInput = { roundId: number; step: number };
+/** `round`, plus ce que le coup a montré (`reveal` du moteur), à plat. */
+export type PlayResponse = { round: RoundDto } & Record<string, unknown>;
 
 export function play(
   ctx: AppContext,
-  def: GameDefinition,
+  engine: GameEngine,
   user: SessionUser,
   input: PlayInput,
+  action: unknown,
 ): PlayResponse {
   return withTransaction(ctx.db, () => {
-    const round = ownedRound(ctx, def, user, input.roundId);
+    const round = ownedRound(ctx, engine, user, input.roundId);
     if (round.status !== "playing") {
-      throw new HttpError(409, "round_not_active", { round: toRoundDto(def, round) });
+      throw new HttpError(409, "round_not_active", { round: toRoundDto(engine, round) });
     }
     if (round.step !== input.step) {
-      throw new HttpError(409, "step_mismatch", { round: toRoundDto(def, round) });
+      throw new HttpError(409, "step_mismatch", { round: toRoundDto(engine, round) });
     }
 
-    const mode = requireMode(def, round.mode);
-    if (!Number.isInteger(input.option) || input.option < 0 || input.option >= mode.options) {
-      throw new HttpError(400, "invalid_option", { options: mode.options });
-    }
-
-    // C'est ici que le hasard tombe, côté serveur, une seule fois par étape.
-    const result = playStep(def, mode, round.step, input.option, ctx.drawOptions);
-
-    if (result.outcome === "danger") {
-      const closed: GameRound = { ...round, status: "lost", payoutCents: 0 };
-      store.saveRound(ctx.db, closed);
-      // La mise a déjà été débitée au démarrage : la perte ne bouge pas le solde.
-      wallet.record(ctx.db, user.id, closed.id, "loss");
-      return { round: toRoundDto(def, reread(ctx, closed)), revealed: result.revealed, outcome: result.outcome };
-    }
-
-    const next: GameRound = { ...round, step: result.nextStep, multiplier: result.multiplier };
-    // Dernière étape réussie : la partie s'encaisse toute seule, plus d'options.
-    if (next.step >= def.steps) {
-      next.status = "cashed_out";
-      next.payoutCents = cashoutCents(next.betCents, next.multiplier);
-      store.saveRound(ctx.db, next);
-      wallet.credit(ctx.db, user.id, next.payoutCents, "win", next.id);
-    } else {
-      store.saveRound(ctx.db, next);
-    }
-    return { round: toRoundDto(def, reread(ctx, next)), revealed: result.revealed, outcome: result.outcome };
+    // C'est ici que le hasard tombe, côté serveur, une seule fois par coup.
+    const state = stateOf(engine, round);
+    const result = fromEngine(() => engine.act(state, action, ctx.rng));
+    const closed = settle(ctx, user, round, result);
+    const reveal = (result.reveal ?? {}) as Record<string, unknown>;
+    return { round: toRoundDto(engine, closed), ...reveal };
   });
 }
 
@@ -181,29 +192,59 @@ export type CashoutResponse = { round: RoundDto; balanceCents: number };
 
 export function cashout(
   ctx: AppContext,
-  def: GameDefinition,
+  engine: GameEngine,
   user: SessionUser,
   roundId: number,
 ): CashoutResponse {
-  return withTransaction(ctx.db, () => {
-    const round = ownedRound(ctx, def, user, roundId);
-    if (round.status !== "playing") {
-      throw new HttpError(409, "round_not_active", { round: toRoundDto(def, round) });
-    }
-    if (round.step === 0) throw new HttpError(409, "nothing_to_cashout");
+  // Un jeu sans encaissement le dit d'avance : on ne trouve pas, on perd.
+  if (!engine.canCashout || !engine.cashout) {
+    throw new HttpError(400, "cashout_not_allowed", { game: engine.id });
+  }
+  const encaisser = engine.cashout.bind(engine);
 
-    const closed: GameRound = {
-      ...round,
-      status: "cashed_out",
-      payoutCents: cashoutCents(round.betCents, round.multiplier),
+  return withTransaction(ctx.db, () => {
+    const round = ownedRound(ctx, engine, user, roundId);
+    if (round.status !== "playing") {
+      throw new HttpError(409, "round_not_active", { round: toRoundDto(engine, round) });
+    }
+
+    const state = stateOf(engine, round);
+    const result = fromEngine(() => encaisser(state));
+    const closed = settle(ctx, user, round, { ...result, status: "cashed_out" });
+    return {
+      round: toRoundDto(engine, closed),
+      balanceCents: wallet.getBalanceCents(ctx.db, user.id),
     };
-    store.saveRound(ctx.db, closed);
-    const balanceCents = wallet.credit(ctx.db, user.id, closed.payoutCents, "win", closed.id);
-    return { round: toRoundDto(def, reread(ctx, closed)), balanceCents };
   });
 }
 
-/** Relit la ligne écrite : `updated_at` (donc `finishedAt`) vient de la base. */
-function reread(ctx: AppContext, round: GameRound): GameRound {
-  return store.getRound(ctx.db, round.id) ?? round;
+/**
+ * Écrit le résultat d'un coup et fait bouger l'argent : le SEUL endroit où une
+ * partie change d'état. La mise a déjà été débitée au démarrage — une perte ne
+ * touche donc pas au solde, seul un gain est crédité (et plafonné).
+ */
+function settle(
+  ctx: AppContext,
+  user: SessionUser,
+  round: GameRound,
+  result: EngineResult<unknown>,
+): GameRound {
+  const next: GameRound = {
+    ...round,
+    step: result.step,
+    multiplier: result.multiplier,
+    status: result.status,
+    stateJson: JSON.stringify(result.state),
+    payoutCents:
+      result.status === "cashed_out" ? payoutFor(round.betCents, result.multiplier) : 0,
+  };
+  store.saveRound(ctx.db, next);
+
+  if (next.status === "cashed_out" && next.payoutCents > 0) {
+    wallet.credit(ctx.db, user.id, next.payoutCents, "win", next.id);
+  } else if (next.status === "lost") {
+    wallet.record(ctx.db, user.id, next.id, "loss");
+  }
+  // `updated_at` (donc `finishedAt`) vient de la base : on relit la ligne écrite.
+  return store.getRound(ctx.db, next.id) ?? next;
 }
