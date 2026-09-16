@@ -1,5 +1,19 @@
 # Vault Rush
 
+[**Jouer en ligne →**](https://vault-rush.lucasguilhot.fr) · [Étude de cas complète](https://lucasguilhot.fr/projets/vault-rush) · [Portfolio](https://lucasguilhot.fr)
+
+`React` `TypeScript` `Express` `SQLite` `Docker`
+
+> **Coins fictifs uniquement.** Aucun argent réel, aucun achat, aucune conversion :
+> c'est une démonstration d'architecture et de logique métier, pas un produit de jeu
+> d'argent.
+>
+> **391 tests automatisés** · **7 jeux sur un moteur commun** · **5 040 combinaisons
+> énumérées** pour calibrer le jeu de code · **40 000 mains simulées** pour mesurer le
+> taux de retour du blackjack.
+
+---
+
 Une petite arcade de **sept jeux** en **coins fictifs** : on mise, on tente sa
 chance, on encaisse avant l'accident — ou on joue une main contre le croupier.
 Client React, serveur Express, une seule image Docker — et tout le hasard du côté
