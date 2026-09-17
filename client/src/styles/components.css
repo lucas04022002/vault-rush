@@ -594,59 +594,51 @@
 .gamecard {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
+  gap: var(--sp-4);
   min-height: 200px;
   padding: var(--sp-4);
+  overflow: hidden;
   background: var(--panel);
   border: 2px solid var(--line);
   border-radius: var(--r-card);
 }
 
 /*
- * L'en-tête d'une tuile : l'emblème et l'étiquette sur la même ligne, alignés
- * par le haut — l'étiquette peut passer sur deux lignes (« 4 chiffres, 5 à 7
- * essais ») sans décaler le dessin.
+ * L'illustration d'une tuile : un bandeau pleine largeur, en tête.
+ *
+ * Elle déborde le padding de la tuile (marges négatives) pour toucher les
+ * bords : une illustration encadrée d'une marge ressemble à une vignette
+ * collée, pas à une couverture.
+ *
+ * `aspect-ratio` plutôt qu'une hauteur fixe : le bandeau garde ses
+ * proportions quand la colonne rétrécit, et le SVG est cadré en `slice`,
+ * donc il remplit sans jamais se déformer.
  */
-.gamecard__entete {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-3);
-}
-
-/*
- * Le dessin prend la couleur du jeu (voir plus bas, par accent) et s'assoit
- * dans une pastille sombre : sans elle, un trait fin se perd sur le panneau.
- * `flex-shrink: 0` parce qu'une étiquette longue ne doit pas l'écraser.
- */
-.gamecard__embleme {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--r-card);
+.gamecard__illu {
+  display: block;
+  margin: calc(var(--sp-4) * -1) calc(var(--sp-4) * -1) 0;
+  aspect-ratio: 320 / 132;
+  overflow: hidden;
+  border-bottom: 2px solid var(--line);
+  border-radius: calc(var(--r-card) - 2px) calc(var(--r-card) - 2px) 0 0;
   background: var(--bg);
-  border: 2px solid var(--line);
   color: var(--mag);
 }
 
-.gamecard__embleme svg {
-  width: 26px;
-  height: 26px;
+.gamecard__illu svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
-.gamecard__intitule {
+/* Le texte et les boutons, sous le bandeau. */
+.gamecard__corps {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--sp-3);
   min-width: 0;
 }
 
-/*
- * Le genre, en tête de tuile : il remplace le titre de section qui découpait
- * l'arcade. Gris et discret, pour rester sous l'étiquette du jeu sans lui
- * disputer l'attention.
- */
 .gamecard__genre {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -670,37 +662,37 @@
 }
 
 .gamecard[data-accent="yellow"] .gamecard__title,
-.gamecard[data-accent="yellow"] .gamecard__embleme {
+.gamecard[data-accent="yellow"] .gamecard__illu {
   color: var(--yel);
 }
 
 .gamecard[data-accent="cyan"] .gamecard__title,
-.gamecard[data-accent="cyan"] .gamecard__embleme {
+.gamecard[data-accent="cyan"] .gamecard__illu {
   color: var(--cyan);
 }
 
 .gamecard[data-accent="magenta"] .gamecard__title,
-.gamecard[data-accent="magenta"] .gamecard__embleme {
+.gamecard[data-accent="magenta"] .gamecard__illu {
   color: var(--mag);
 }
 
 .gamecard[data-accent="orange"] .gamecard__title,
-.gamecard[data-accent="orange"] .gamecard__embleme {
+.gamecard[data-accent="orange"] .gamecard__illu {
   color: var(--orange);
 }
 
 .gamecard[data-accent="ice"] .gamecard__title,
-.gamecard[data-accent="ice"] .gamecard__embleme {
+.gamecard[data-accent="ice"] .gamecard__illu {
   color: var(--ice);
 }
 
 .gamecard[data-accent="gem"] .gamecard__title,
-.gamecard[data-accent="gem"] .gamecard__embleme {
+.gamecard[data-accent="gem"] .gamecard__illu {
   color: var(--gem);
 }
 
 .gamecard[data-accent="felt"] .gamecard__title,
-.gamecard[data-accent="felt"] .gamecard__embleme {
+.gamecard[data-accent="felt"] .gamecard__illu {
   color: var(--felt);
 }
 
