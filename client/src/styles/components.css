@@ -602,6 +602,60 @@
   border-radius: var(--r-card);
 }
 
+/*
+ * L'en-tête d'une tuile : l'emblème et l'étiquette sur la même ligne, alignés
+ * par le haut — l'étiquette peut passer sur deux lignes (« 4 chiffres, 5 à 7
+ * essais ») sans décaler le dessin.
+ */
+.gamecard__entete {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+}
+
+/*
+ * Le dessin prend la couleur du jeu (voir plus bas, par accent) et s'assoit
+ * dans une pastille sombre : sans elle, un trait fin se perd sur le panneau.
+ * `flex-shrink: 0` parce qu'une étiquette longue ne doit pas l'écraser.
+ */
+.gamecard__embleme {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-card);
+  background: var(--bg);
+  border: 2px solid var(--line);
+  color: var(--mag);
+}
+
+.gamecard__embleme svg {
+  width: 26px;
+  height: 26px;
+}
+
+.gamecard__intitule {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/*
+ * Le genre, en tête de tuile : il remplace le titre de section qui découpait
+ * l'arcade. Gris et discret, pour rester sous l'étiquette du jeu sans lui
+ * disputer l'attention.
+ */
+.gamecard__genre {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .gamecard__tag {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -615,31 +669,38 @@
   font-size: 26px;
 }
 
-.gamecard[data-accent="yellow"] .gamecard__title {
+.gamecard[data-accent="yellow"] .gamecard__title,
+.gamecard[data-accent="yellow"] .gamecard__embleme {
   color: var(--yel);
 }
 
-.gamecard[data-accent="cyan"] .gamecard__title {
+.gamecard[data-accent="cyan"] .gamecard__title,
+.gamecard[data-accent="cyan"] .gamecard__embleme {
   color: var(--cyan);
 }
 
-.gamecard[data-accent="magenta"] .gamecard__title {
+.gamecard[data-accent="magenta"] .gamecard__title,
+.gamecard[data-accent="magenta"] .gamecard__embleme {
   color: var(--mag);
 }
 
-.gamecard[data-accent="orange"] .gamecard__title {
+.gamecard[data-accent="orange"] .gamecard__title,
+.gamecard[data-accent="orange"] .gamecard__embleme {
   color: var(--orange);
 }
 
-.gamecard[data-accent="ice"] .gamecard__title {
+.gamecard[data-accent="ice"] .gamecard__title,
+.gamecard[data-accent="ice"] .gamecard__embleme {
   color: var(--ice);
 }
 
-.gamecard[data-accent="gem"] .gamecard__title {
+.gamecard[data-accent="gem"] .gamecard__title,
+.gamecard[data-accent="gem"] .gamecard__embleme {
   color: var(--gem);
 }
 
-.gamecard[data-accent="felt"] .gamecard__title {
+.gamecard[data-accent="felt"] .gamecard__title,
+.gamecard[data-accent="felt"] .gamecard__embleme {
   color: var(--felt);
 }
 

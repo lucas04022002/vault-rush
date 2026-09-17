@@ -6,9 +6,16 @@ import { accentFor } from "../games/boards/index.ts";
 import { errorMessage } from "../lib/messages.ts";
 
 /**
- * Les genres, dans l'ordre d'affichage de l'arcade. Le GENRE d'un jeu vient du
- * serveur (`config.kind`) : ajouter un jeu à un genre existant ne touche pas
- * cet écran, et ajouter un genre nouveau se fait d'une ligne ici.
+ * Les genres : leur ORDRE range le catalogue, leur TITRE s'affiche sur chaque
+ * tuile. Le genre d'un jeu vient du serveur (`config.kind`) : ajouter un jeu à
+ * un genre existant ne touche pas cet écran, et ajouter un genre nouveau se
+ * fait d'une ligne ici.
+ *
+ * Les jeux étaient auparavant découpés en une section par genre. Sur sept jeux
+ * répartis 4/1/1/1, trois sections n'avaient qu'une tuile : elles occupaient
+ * une ligne entière pour une seule carte, et le catalogue se lisait comme une
+ * liste verticale. Le regroupement reste — il ordonne la grille et nomme
+ * chaque jeu — mais il ne coupe plus la page.
  */
 const GENRES: { kind: GameKind; titre: string }[] = [
   { kind: "ladder", titre: "Monte et encaisse" },
@@ -43,18 +50,24 @@ export function Arcade() {
     };
   }, []);
 
-  // Le rang d'un jeu est celui du catalogue : il ne bouge pas avec le regroupement.
+  // Le rang d'un jeu est celui du catalogue : il ne bouge pas avec le classement.
   const rangs = new Map((catalogue ?? []).map((jeu, index) => [jeu.id, index]));
 
   const connus = new Set(GENRES.map((genre) => genre.kind as string));
-  const groupes = [
-    ...GENRES.map((genre) => ({
-      titre: genre.titre,
-      jeux: (catalogue ?? []).filter((jeu) => jeu.kind === genre.kind),
-    })),
-    // Un genre servi par le serveur mais inconnu ici ne disparaît pas en silence.
-    { titre: "Autres jeux", jeux: (catalogue ?? []).filter((jeu) => !connus.has(jeu.kind)) },
-  ].filter((groupe) => groupe.jeux.length > 0);
+
+  /** Le titre du genre d'un jeu. Un genre inconnu du client garde un nom. */
+  const genreDe = (jeu: GameConfig): string =>
+    GENRES.find((genre) => genre.kind === jeu.kind)?.titre ?? "Autres jeux";
+
+  /**
+   * Le catalogue rangé par genre, dans l'ordre de GENRES, puis les jeux d'un
+   * genre inconnu — servi par le serveur avant d'être déclaré ici. Ils passent
+   * en dernier plutôt que de disparaître en silence.
+   */
+  const jeux = [
+    ...GENRES.flatMap((genre) => (catalogue ?? []).filter((jeu) => jeu.kind === genre.kind)),
+    ...(catalogue ?? []).filter((jeu) => !connus.has(jeu.kind)),
+  ];
 
   return (
     <>
@@ -62,24 +75,24 @@ export function Arcade() {
 
       {error ? <Toast kind="bad">{error}</Toast> : null}
 
-      {groupes.map((groupe) => (
-        <section className="arcade__genre" key={groupe.titre} aria-label={groupe.titre}>
-          <h2 className="arcade__titre">{groupe.titre}</h2>
-          <div className="arcade__grid">
-            {groupe.jeux.map((jeu) => (
-              <GameCard
-                key={jeu.id}
-                tag={`Jeu ${numéro(rangs.get(jeu.id) ?? 0)} · ${jeu.format}`}
-                title={jeu.name}
-                tagline={jeu.tagline}
-                accent={accentFor(jeu.id)}
-                onPlay={() => navigate(`/jeux/${jeu.id}`)}
-                onRules={() => navigate(`/regles/${jeu.id}`)}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
+      <section className="arcade__genre" aria-label="Catalogue des jeux">
+        <h2 className="sr-only">Catalogue des jeux</h2>
+        <div className="arcade__grid">
+          {jeux.map((jeu) => (
+            <GameCard
+              key={jeu.id}
+              gameId={jeu.id}
+              genre={genreDe(jeu)}
+              tag={`Jeu ${numéro(rangs.get(jeu.id) ?? 0)} · ${jeu.format}`}
+              title={jeu.name}
+              tagline={jeu.tagline}
+              accent={accentFor(jeu.id)}
+              onPlay={() => navigate(`/jeux/${jeu.id}`)}
+              onRules={() => navigate(`/regles/${jeu.id}`)}
+            />
+          ))}
+        </div>
+      </section>
 
       <Toast kind="info">
         Les coins n'ont aucune valeur. Sous <Amount cents={1000} />, une recharge gratuite de{" "}

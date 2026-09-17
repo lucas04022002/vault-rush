@@ -5,10 +5,14 @@ import { useSession } from "./session.tsx";
 /** Le cadre commun : marque, solde, navigation, pied de page. */
 export function App() {
   const { user, balanceCents, loading } = useSession();
-  const surLaConnexion = useLocation().pathname === "/connexion";
+  const chemin = useLocation().pathname;
+  const surLaConnexion = chemin === "/connexion";
+  // Le catalogue est une grille : il lui faut de la largeur. Les autres écrans
+  // gardent leur colonne étroite, qui va bien à un plateau de jeu.
+  const catalogue = chemin === "/";
 
   return (
-    <div className="shell">
+    <div className="shell" data-large={catalogue ? "" : undefined}>
       <header className="shell__top">
         <Link to="/" className="brand">
           VAULT RUSH

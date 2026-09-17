@@ -73,6 +73,26 @@
   padding: var(--sp-2) 0 var(--sp-5);
 }
 
+/*
+ * Le catalogue respire plus large que les plateaux.
+ *
+ * 560 px conviennent à un jeu — une colonne, un plateau, un formulaire de
+ * mise. Ils étranglaient l'arcade : sur un écran de 1440 px, la grille n'en
+ * occupait que 528, et les sept tuiles se lisaient comme une liste verticale
+ * alors qu'elles tiennent côte à côte.
+ *
+ * L'attribut est posé par le cadre selon la route, et non déduit du contenu :
+ * une règle qui dépendrait d'une classe interne de l'arcade se casserait le
+ * jour où cette classe change de nom.
+ */
+.shell[data-large] {
+  max-width: 1120px;
+}
+
+.shell[data-large] .page {
+  max-width: 100%;
+}
+
 .shell__foot {
   display: flex;
   flex-direction: column;

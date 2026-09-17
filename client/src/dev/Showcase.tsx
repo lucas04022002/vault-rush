@@ -492,6 +492,8 @@ export function Showcase() {
 
       <section style={{ display: "grid", gap: "var(--sp-3)", gridTemplateColumns: "1fr 1fr" }}>
         <GameCard
+          gameId="vault-rush"
+          genre="Monte et encaisse"
           tag="JEU 01 · 6 ÉTAGES"
           title="Vault Rush"
           tagline="Monte, choisis une porte par étage, encaisse avant l'alarme."
@@ -500,6 +502,8 @@ export function Showcase() {
           onRules={() => {}}
         />
         <GameCard
+          gameId="laser-grid"
+          genre="Monte et encaisse"
           tag="JEU 02 · 8 LIGNES"
           title="Laser Grid"
           tagline="Traverse la grille ligne par ligne sans toucher un laser."
@@ -508,6 +512,8 @@ export function Showcase() {
           onRules={() => {}}
         />
         <GameCard
+          gameId="getaway"
+          genre="Monte et encaisse"
           tag="JEU 03 · 5 TRONÇONS"
           title="Getaway"
           tagline="Choisis ta route à chaque tronçon, planque-toi avant le barrage."
@@ -516,6 +522,8 @@ export function Showcase() {
           onRules={() => {}}
         />
         <GameCard
+          gameId="bomb-squad"
+          genre="Monte et encaisse"
           tag="JEU 04 · 4 ÉTAPES"
           title="Bomb Squad"
           tagline="Coupe un câble par étape, retire-toi avant l'explosion."

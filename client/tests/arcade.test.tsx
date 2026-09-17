@@ -4,14 +4,18 @@ import { baseApi } from "./helpers/fake-api.ts";
 import { renderApp } from "./helpers/render.tsx";
 
 /**
- * L'arcade à SEPT jeux : ses groupes, son ordre, et son étiquette.
+ * L'arcade à SEPT jeux : son ordre, son étiquette, et le genre de chaque tuile.
  *
- * Deux défauts que ces tests verrouillent, tous deux constatés le 13/09 :
+ * Trois défauts que ces tests verrouillent :
  *   - l'étiquette pluralisait `labels.step` au jugé et affichait
- *     « Jeu 05 · 1 lâchers » pour Diamond Drop. C'est désormais le jeu qui
- *     écrit son format (`config.format`), et l'arcade l'affiche TEL QUEL ;
- *   - les sept tuiles se suivaient en vrac. Elles sont regroupées par genre,
- *     et un genre inconnu du client n'en fait pas disparaître une.
+ *     « Jeu 05 · 1 lâchers » pour Diamond Drop (13/09). C'est désormais le jeu
+ *     qui écrit son format (`config.format`), et l'arcade l'affiche TEL QUEL ;
+ *   - les sept tuiles se suivaient en vrac (13/09). Elles sont rangées par
+ *     genre, et un genre inconnu du client n'en fait pas disparaître une ;
+ *   - une section par genre coupait la page (17/09). Sur sept jeux répartis
+ *     4/1/1/1, trois sections n'avaient qu'une tuile et occupaient une ligne
+ *     entière pour une seule carte. La grille est unique, le genre s'affiche
+ *     sur la tuile — l'ordre et l'information sont conservés, pas la coupure.
  */
 
 /** Le catalogue complet, dans l'ordre que sert `GET /api/games`. */
@@ -42,36 +46,51 @@ const CATALOGUE = [
 
 function arcade(games: unknown[] = CATALOGUE) {
   baseApi(true).on("GET /api/games", { json: { games } }).install();
-  renderApp("/");
+  return renderApp("/");
 }
 
-describe("arcade groupée par genre", () => {
-  it("range les sept jeux dans quatre groupes, dans l'ordre", async () => {
+/** Les titres des tuiles, dans l'ordre où la grille les pose. */
+const titresAffichés = () =>
+  screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+
+describe("arcade en une grille", () => {
+  it("pose les sept jeux dans une seule grille, rangés par genre", async () => {
     arcade();
     await screen.findByRole("heading", { name: "Arcade", level: 1 });
 
-    const genres = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-    expect(genres).toEqual(["Monte et encaisse", "Réflexion", "Hasard pur", "Cartes"]);
-  });
-
-  it("chaque groupe ne contient que ses jeux", async () => {
-    arcade();
-    await screen.findByRole("heading", { name: "Arcade", level: 1 });
-
-    const jeuxDe = (titre: string) =>
-      within(screen.getByRole("region", { name: titre }))
-        .getAllByRole("heading", { level: 3 })
-        .map((h) => h.textContent);
-
-    expect(jeuxDe("Monte et encaisse")).toEqual([
+    expect(titresAffichés()).toEqual([
       "Vault Rush",
       "Laser Grid",
       "Getaway",
       "Bomb Squad",
+      "Vault Code",
+      "Diamond Drop",
+      "Blackjack Express",
     ]);
-    expect(jeuxDe("Réflexion")).toEqual(["Vault Code"]);
-    expect(jeuxDe("Hasard pur")).toEqual(["Diamond Drop"]);
-    expect(jeuxDe("Cartes")).toEqual(["Blackjack Express"]);
+  });
+
+  it("ne coupe plus la page en sections : une seule région, une seule grille", async () => {
+    const { container } = arcade();
+    await screen.findByRole("heading", { name: "Arcade", level: 1 });
+
+    // Le défaut du 17/09 : quatre grilles, dont trois ne portaient qu'une tuile.
+    expect(container.querySelectorAll(".arcade__grid")).toHaveLength(1);
+    expect(screen.getAllByRole("region")).toHaveLength(1);
+  });
+
+  it("chaque tuile porte son genre", async () => {
+    arcade();
+    await screen.findByRole("heading", { name: "Arcade", level: 1 });
+
+    const genreDeLaTuile = (titre: string) => {
+      const tuile = screen.getByRole("heading", { level: 3, name: titre }).closest(".gamecard");
+      return tuile?.querySelector(".gamecard__genre")?.textContent;
+    };
+
+    expect(genreDeLaTuile("Vault Rush")).toBe("Monte et encaisse");
+    expect(genreDeLaTuile("Vault Code")).toBe("Réflexion");
+    expect(genreDeLaTuile("Diamond Drop")).toBe("Hasard pur");
+    expect(genreDeLaTuile("Blackjack Express")).toBe("Cartes");
   });
 
   it("affiche le format du jeu tel quel, sans pluriel deviné", async () => {
@@ -86,29 +105,31 @@ describe("arcade groupée par genre", () => {
     expect(screen.getByText("Jeu 07 · contre le croupier")).toBeInTheDocument();
   });
 
-  it("le numéro d'un jeu est son rang dans le catalogue, pas dans son groupe", async () => {
+  it("le numéro d'un jeu est son rang dans le catalogue, pas dans la grille", async () => {
     arcade();
     await screen.findByRole("heading", { name: "Arcade", level: 1 });
 
-    // Diamond Drop est seul dans « Hasard pur » et reste le sixième du catalogue.
-    const hasard = screen.getByRole("region", { name: "Hasard pur" });
-    expect(within(hasard).getByText(/^Jeu 06 ·/)).toBeInTheDocument();
+    // Diamond Drop est sixième du catalogue et le reste, où qu'il tombe.
+    const tuile = screen.getByRole("heading", { level: 3, name: "Diamond Drop" }).closest(".gamecard");
+    expect(within(tuile as HTMLElement).getByText(/^Jeu 06 ·/)).toBeInTheDocument();
   });
 
-  it("un genre inconnu du client ne fait pas disparaître son jeu", async () => {
+  it("un genre inconnu du client ne fait pas disparaître son jeu : il passe en dernier", async () => {
     arcade([...CATALOGUE, { ...CATALOGUE[0], id: "roulette", kind: "roue", name: "Roulette" }]);
     await screen.findByRole("heading", { name: "Arcade", level: 1 });
 
-    const autres = screen.getByRole("region", { name: "Autres jeux" });
-    expect(within(autres).getByRole("heading", { level: 3, name: "Roulette" })).toBeInTheDocument();
+    expect(titresAffichés().at(-1)).toBe("Roulette");
+
+    const tuile = screen.getByRole("heading", { level: 3, name: "Roulette" }).closest(".gamecard");
+    expect(tuile?.querySelector(".gamecard__genre")?.textContent).toBe("Autres jeux");
   });
 
-  it("un groupe vide n'a pas de titre", async () => {
+  it("un catalogue partiel n'affiche que ses jeux", async () => {
     arcade(CATALOGUE.filter((jeu) => jeu.kind === "ladder"));
     await screen.findByRole("heading", { name: "Arcade", level: 1 });
 
-    expect(screen.getByRole("heading", { level: 2, name: "Monte et encaisse" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Cartes" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Autres jeux" })).not.toBeInTheDocument();
+    expect(titresAffichés()).toEqual(["Vault Rush", "Laser Grid", "Getaway", "Bomb Squad"]);
+    expect(screen.queryByText("Cartes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Autres jeux")).not.toBeInTheDocument();
   });
 });

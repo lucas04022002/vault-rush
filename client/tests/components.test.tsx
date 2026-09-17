@@ -325,6 +325,8 @@ describe("GameCard", () => {
     const onRules = vi.fn();
     render(
       <GameCard
+        gameId="vault-rush"
+        genre="Monte et encaisse"
         tag="JEU 01 · 6 ÉTAGES"
         title="Vault Rush"
         tagline="Monte, choisis une porte par étage, encaisse avant l'alarme."
