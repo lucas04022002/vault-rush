@@ -67,14 +67,23 @@ describe("gardes de route", () => {
     expect(screen.getByText(/impossible de convertir/i)).toBeInTheDocument();
   });
 
-  it("les mentions légales laissent les champs à compléter", async () => {
+  /*
+   * Ce test garantissait l'inverse : que la page affiche bien ses « À
+   * COMPLÉTER ». C'était juste tant que le site n'était pas publié — le
+   * placeholder devait se voir pour ne pas être oublié. Le site est en ligne
+   * depuis le 12/09 : ce que la page ne doit plus jamais afficher, c'est
+   * précisément ce que ce test exigeait.
+   */
+  it("les mentions légales sont renseignées, et nomment un éditeur", async () => {
     baseApi(false).install();
     renderApp("/mentions-legales");
 
     expect(
       await screen.findByRole("heading", { name: "Mentions légales", level: 1 }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText(/À COMPLÉTER/).length).toBeGreaterThan(2);
+    expect(screen.queryByText(/À COMPLÉTER/)).toBeNull();
+    expect(screen.getAllByText("Lucas Guilhot").length).toBeGreaterThan(0);
+    expect(screen.getByText(/OVH SAS/)).toBeInTheDocument();
   });
 });
 
