@@ -1,20 +1,26 @@
 /**
  * Informations légales du site.
  *
- * Les champs « À COMPLÉTER » sont volontaires : ils doivent être remplis avant
- * la mise en ligne, et se voient tout de suite à l'écran s'ils ne le sont pas.
+ * Ils l'ont été : le site est en ligne, et la page affichait « À COMPLÉTER » à
+ * six endroits, en public. Les valeurs ci-dessous sont celles que l'éditeur
+ * publie déjà sur son portfolio — rien n'est inventé, et surtout pas un numéro
+ * d'immatriculation.
+ *
+ * `statut` dit « personne physique » et non une forme d'entreprise : Vault Rush
+ * ne vend rien, n'encaisse rien, et ses coins n'ont aucune valeur. Il n'y a
+ * donc ni activité commerciale, ni immatriculation à citer.
  */
 
 export const LEGAL = {
   siteName: "Vault Rush",
   /** Personne ou société qui édite le site. */
-  editeur: "À COMPLÉTER — nom de l'éditeur du site",
-  statut: "À COMPLÉTER — forme juridique et, le cas échéant, numéro d'immatriculation",
-  adresse: "À COMPLÉTER — adresse postale de l'éditeur",
-  contact: "À COMPLÉTER — adresse de contact",
-  directeurPublication: "À COMPLÉTER — directeur de la publication",
-  hebergeur: "À COMPLÉTER — hébergeur : nom, adresse, téléphone",
-  derniereMiseAJour: "12/09/2026",
+  editeur: "Lucas Guilhot",
+  statut: "Personne physique — site non professionnel, sans activité commerciale",
+  adresse: "Haute-Garonne (31), France",
+  contact: "lucasguilhot7@gmail.com",
+  directeurPublication: "Lucas Guilhot",
+  hebergeur: "OVH SAS — 2 rue Kellermann, 59100 Roubaix, France — téléphone : 1007",
+  derniereMiseAJour: "17/09/2026",
 } as const;
 
 /** Les points que les CGU doivent énoncer noir sur blanc. */

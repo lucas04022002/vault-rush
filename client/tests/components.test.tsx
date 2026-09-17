@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { formatCoins, formatMultiplier, formatPercent } from "../src/lib/format.ts";
+import { LEGAL } from "../src/lib/legal.ts";
 import {
   Amount,
   Balance,
@@ -340,5 +341,24 @@ describe("GameCard", () => {
     await userEvent.click(screen.getByRole("button", { name: /Règles de Vault Rush/i }));
     expect(onPlay).toHaveBeenCalledTimes(1);
     expect(onRules).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Les mentions légales affichaient « À COMPLÉTER » à six endroits, en public.
+ * Ce test le rend impossible sans qu'on s'en aperçoive.
+ */
+describe("mentions légales", () => {
+  it("ne laisse aucun champ à compléter", () => {
+    for (const [champ, valeur] of Object.entries(LEGAL)) {
+      expect(`${champ}: ${valeur}`).not.toContain("À COMPLÉTER");
+    }
+  });
+
+  it("nomme l'éditeur, un contact et l'hébergeur réel", () => {
+    expect(LEGAL.editeur).toBe("Lucas Guilhot");
+    expect(LEGAL.contact).toContain("@");
+    // Le site répond depuis un bloc OVH : l'annoncer autrement serait faux.
+    expect(LEGAL.hebergeur).toContain("OVH");
   });
 });
