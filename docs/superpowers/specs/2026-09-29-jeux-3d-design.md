@@ -16,11 +16,11 @@ Le serveur décide, la 3D rejoue. Aucune physique, aucun hasard, aucun calcul c�
 
 | Fichier | Rôle | Dépend de |
 |---|---|---|
-| `support.ts` | `webglAvailable()` (essai de contexte sur un canvas jetable), `prefersReducedMotion()` (déplacé depuis `DiamondDropScreen`), `loadRenderPreference()` / `setRenderPreference("3d" \| "2d")` sur `localStorage` clé `vaultrush_render`, lecture et écriture sous `try/catch` (même recette que `lib/sound.ts`) ; `shouldRender3D()` = WebGL disponible ET pas de mouvement réduit ET préférence ≠ `"2d"`. | rien (pas de `three`) |
-| `useRenderMode.ts` | hook React : `{ mode: "3d" \| "2d", toggle() }`, initialisé par `shouldRender3D()`. | `support.ts` |
-| `RenderToggle.tsx` | petit bouton « Passer en 2D » / « Passer en 3D », affiché dans l'en-tête du plateau, **seulement si la 3D est possible** sur l'appareil. Préférence commune à tous les jeux. | `useRenderMode` |
+| `support.ts` | `webglAvailable()` (essai de contexte sur un canvas jetable), `prefersReducedMotion()` (déplacé depuis `DiamondDropScreen`), `loadRenderPreference()` / `setRenderPreference("3d" \| "2d")` sur `localStorage` clé `vaultrush_render`, lecture et écriture sous `try/catch` (même recette que `lib/sound.ts`) ; `chooseRender({ webgl, reducedMotion, preference })` → `{ mode, possible }` : 3D si WebGL disponible ET pas de mouvement réduit ET préférence ≠ `"2d"`. | rien (pas de `three`) |
+| `useRenderMode.ts` | hook React : `{ mode: "3d" \| "2d", possible, toggle() }`, initialisé par `chooseRender`. | `support.ts` |
+| `RenderToggle.tsx` | bouton bascule « Vue 3D » (libellé fixe, état porté par `aria-pressed`), affiché dans l'en-tête du plateau, **seulement si la 3D est possible** sur l'appareil. Préférence commune à tous les jeux. | `support.ts` (type) |
 | `palette.ts` | les couleurs « Néon arcade » en `THREE.Color` : fond `#0F0A1E`, magenta `#FF3D8A`, cyan `#35E5FF`, jaune `#FFD23F`, plus les teintes de chaleur des cases (reprises de `heat.ts`). | `three` |
-| `stage.ts` | `createStage(canvas)` → `{ scene, camera, requestRender(), animate(durationMs, onFrame) → Promise, resize(), dispose() }`. Rendu : `WebGLRenderer` (antialias), `pixelRatio = min(devicePixelRatio, 2)`, halo néon par `EffectComposer` + `UnrealBloomPass` (addons de `three`, pas de dépendance en plus). **Aucune boucle permanente** : une image est calculée seulement pendant `animate` ou sur `requestRender` (redimensionnement, changement d'état). `ResizeObserver` sur le conteneur. `dispose()` libère géométries, matériaux, cibles de rendu et contexte. | `three`, `palette.ts` |
+| `stage.ts` | `createStage(canvas)` → `{ scene, camera, requestRender(), run(tick), dispose() }` ; `run(tick)` appelle `tick(dtMs)` à chaque image tant qu'il renvoie `true`, puis la boucle s'arrête. Lumières communes : une ambiance douce, une lumière blanche de face, un rehaut magenta à gauche et cyan à droite. Rendu : `WebGLRenderer` (antialias), `pixelRatio = min(devicePixelRatio, 2)`, halo néon par `EffectComposer` + `UnrealBloomPass` (addons de `three`, pas de dépendance en plus). **Aucune boucle permanente** : une image est calculée seulement pendant `run` ou sur `requestRender` (redimensionnement, changement d'état). `ResizeObserver` sur le conteneur. `dispose()` libère géométries, matériaux, cibles de rendu et contexte. | `three`, `palette.ts` |
 | `Stage3D.tsx` | composant React : crée le canvas (`aria-hidden="true"`), appelle `createStage` au montage, `dispose` au démontage, et passe la scène au jeu par une fonction `build(stage)`. | `stage.ts` |
 | `Fallback.tsx` | frontière d'erreur : si la création du contexte WebGL ou la scène échoue en cours de route, elle affiche le plateau 2D passé en `fallback`, sans message d'erreur au joueur. | React |
 
@@ -32,7 +32,7 @@ La CSP par défaut de `helmet` ne change pas : `three` n'utilise ni `eval`, ni w
 
 ### Ce que voit le joueur
 
-- Un plateau de clous néon cyan, **légèrement incliné vers le joueur** (≈ 20°), sur fond violet nuit ; les cases en bas, colorées par leur chaleur, le multiplicateur écrit dessus.
+- Un plateau de clous néon améthyste (la couleur de Diamond Drop), **légèrement incliné vers le joueur** (≈ 20°), sur fond violet nuit ; les cases en bas, colorées par leur chaleur, le multiplicateur écrit dessus.
 - Un **diamant facetté** (octaèdre allongé, matériau brillant, reflet magenta) qui tombe de clou en clou avec un petit rebond à chaque rangée et tourne légèrement sur lui-même.
 - **Caméra** : au repos, elle cadre tout le plateau ; pendant la chute, elle suit le diamant en se rapprochant un peu (sur un téléphone, 17 cases dans 375 px seraient illisibles) ; à l'arrivée, elle se pose sur la case d'arrivée.
 - **Arrivée** : la case s'allume, son multiplicateur grossit ; si ce multiplicateur vaut 2× ou plus, une gerbe d'éclats de la couleur de la case jaillit au-dessus. Le son reste celui d'aujourd'hui (`playOutcome("cashout")` au moment où le diamant est posé).
@@ -61,7 +61,7 @@ Les repères, la liste complète des cases (`ToutesLesCases`), le bilan et les b
 - **Contexte WebGL perdu** (téléphone qui récupère la mémoire) : `Fallback` bascule en 2D pour la partie en cours ; la partie elle-même n'est pas touchée (elle vit sur le serveur).
 - **Reprise d'une partie après rechargement** : même comportement qu'en 2D (le plateau se dessine dans l'état reçu).
 - **Changement 3D ↔ 2D en pleine chute** : le plateau choisi reprend à la rangée courante ; aucun appel serveur.
-- **Onglet masqué** : pas de boucle permanente, donc rien ne tourne ; `animate` se termine au retour.
+- **Onglet masqué** : pas de boucle permanente, donc rien ne tourne ; la boucle reprend au retour s'il restait un mouvement.
 
 ## 5. Vérification
 
