@@ -33,3 +33,40 @@ globalThis.Request = JsdomFriendlyRequest as unknown as typeof Request;
 afterEach(() => {
   cleanup();
 });
+
+/**
+ * jsdom n'a pas de WebGL : `getContext` y écrit « Not implemented » en console à
+ * chaque appel. Un canvas de test ne dessine rien, et `webglAvailable()` doit y
+ * répondre « non » sans bruit. Un test qui veut simuler WebGL remplace ce stub par
+ * `vi.spyOn(HTMLCanvasElement.prototype, "getContext")`.
+ */
+if (typeof HTMLCanvasElement !== "undefined") {
+  HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext;
+}
+
+/**
+ * jsdom devrait fournir localStorage, mais vérifier que les méthodes sont disponibles.
+ */
+if (typeof window !== "undefined" && (!window.localStorage || typeof window.localStorage.clear !== "function")) {
+  const store: Record<string, string> = {};
+  Object.defineProperty(window, "localStorage", {
+    value: {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, value: string) => {
+        store[key] = value;
+      },
+      removeItem: (key: string) => {
+        delete store[key];
+      },
+      clear: () => {
+        Object.keys(store).forEach((key) => {
+          delete store[key];
+        });
+      },
+      key: (index: number) => Object.keys(store)[index] ?? null,
+      length: Object.keys(store).length,
+    } as Storage,
+    writable: true,
+    configurable: true,
+  });
+}

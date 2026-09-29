@@ -5,6 +5,7 @@ import { Amount, Button, PageTitle, Toast } from "../components/index.ts";
 import { formatCoins, formatMultiplier } from "../lib/format.ts";
 import { playOutcome } from "../lib/sound.ts";
 import { useSession } from "../session.tsx";
+import { prefersReducedMotion } from "../three/support.ts";
 import { BetForm, RewardPanel } from "./BetForm.tsx";
 import { accentFor } from "./boards/index.ts";
 import { DiamondBoard } from "./DiamondBoard.tsx";
@@ -26,12 +27,6 @@ import "./diamond-drop.css";
 
 /** Durée d'une rangée de chute, en millisecondes. */
 const MS_PAR_RANGEE = 90;
-
-/** Vrai si le navigateur demande à ne pas animer (jsdom n'a pas `matchMedia`). */
-function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
 
 export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
   const { balanceCents, setBalance } = useSession();
