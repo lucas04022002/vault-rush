@@ -3,6 +3,12 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    // Le morceau `three` (~556 kB) n'est chargé qu'à la demande, à l'ouverture d'un jeu 3D ;
+    // `scripts/garde-poids.mjs` surveille le morceau principal. La limite reste assez basse
+    // pour avertir si un autre morceau gonfle.
+    chunkSizeWarningLimit: 600,
+  },
   server: {
     // Adresse explicite : « localhost » se résout en ::1 sous Windows, et le
     // serveur de dev devient injoignable en 127.0.0.1 (≈ 2,4 s par requête).

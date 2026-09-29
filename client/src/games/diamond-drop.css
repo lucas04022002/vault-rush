@@ -204,17 +204,6 @@
   height: 100%;
 }
 
-.render-toggle {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.render-toggle[aria-pressed="true"] {
-  color: var(--gem);
-}
-
 /* ------------------------- Mouvement réduit ------------------------- */
 
 @media (prefers-reduced-motion: reduce) {

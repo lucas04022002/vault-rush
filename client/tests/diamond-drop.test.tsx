@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { baseApi } from "./helpers/fake-api.ts";
 import { renderApp } from "./helpers/render.tsx";
@@ -511,12 +511,40 @@ describe("la vue 3D", () => {
       .install();
     renderApp("/jeux/diamond-drop");
 
-    await userEvent.click(await screen.findByRole("button", { name: "Lâcher le diamant" }));
+    // Horloge simulée : le temps ne passe que par `advanceTimersByTime`, à la milliseconde.
+    // `shouldAdvanceTime` laisse tourner les attentes de la bibliothèque de test.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const utilisateur = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await utilisateur.click(await screen.findByRole("button", { name: "Lâcher le diamant" }));
     const plateau = await screen.findByTestId("plateau-3d");
     expect(plateau).toHaveAttribute("data-row-ms", "140");
 
+    // Le vrai rythme de l'écran : on avance l'horloge milliseconde par milliseconde (chaque rangée
+    // réarme la minuterie de la suivante à la sortie de `act`) et on compte le temps entre deux
+    // changements de rangée. `shouldAdvanceTime` laisse filer quelques ms réelles : d'où la marge.
+    const rangéeAffichée = () => Number(plateau.getAttribute("data-row"));
+    const msJusquAuChangement = () => {
+      const avant = rangéeAffichée();
+      for (let ms = 1; ms <= 400; ms++) {
+        act(() => {
+          vi.advanceTimersByTime(1);
+        });
+        if (rangéeAffichée() !== avant) return ms;
+      }
+      return Infinity;
+    };
+    msJusquAuChangement(); // se cale sur un changement de rangée
+    const intervalle = msJusquAuChangement();
+    expect(intervalle).toBeGreaterThanOrEqual(140);
+    expect(intervalle).toBeLessThanOrEqual(150);
+
     // 8 rangées à 140 ms, plus le pas qui pose le diamant : le bilan arrive.
-    expect(await screen.findByRole("table", { name: "Bilan de la partie" }, { timeout: 3000 })).toBeInTheDocument();
+    for (let i = 0; i < 8; i++) {
+      act(() => {
+        vi.advanceTimersByTime(140);
+      });
+    }
+    expect(await screen.findByRole("table", { name: "Bilan de la partie" })).toBeInTheDocument();
     expect(screen.getByTestId("plateau-3d")).toHaveAttribute("data-landed", "0");
   });
 });
