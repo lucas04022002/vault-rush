@@ -17,13 +17,21 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** `from "three"`, `from "three/addons/…"`, ou `import("three")` — jamais un chemin relatif. */
-const IMPORTE_THREE = /(from\s+["']three(\/[^"']*)?["'])|(import\(\s*["']three(\/[^"']*)?["']\s*\))/;
+/** `from "three"`, `import "three/…"` (effet de bord), ou `import("three")` : jamais un chemin relatif. */
+const IMPORTE_THREE =
+  /(from\s+["']three(\/[^"']*)?["'])|(\bimport\s+["']three(\/[^"']*)?["'])|(import\(\s*["']three(\/[^"']*)?["']\s*\))/;
 
 /** Fichiers du socle lus par les écrans : ils ne doivent PAS tirer `three`. */
-const SANS_THREE = ["support.ts", "useRenderMode.ts", "RenderToggle.tsx", "palette.ts", "Fallback.tsx"];
+const SANS_THREE = ["support.ts", "useRenderMode.ts", "RenderToggle.tsx", "palette.ts", "Fallback.tsx", "boucle.ts"];
 
 describe("où three a le droit d'être importé", () => {
+  it("le détecteur reconnaît les trois formes et ignore les chemins relatifs", () => {
+    expect(IMPORTE_THREE.test('import { Color } from "three";')).toBe(true);
+    expect(IMPORTE_THREE.test('import "three/addons/x.js";')).toBe(true);
+    expect(IMPORTE_THREE.test('await import("three")')).toBe(true);
+    expect(IMPORTE_THREE.test('import { x } from "../three/support.ts";')).toBe(false);
+  });
+
   it("seulement dans src/three/ et src/games/*3d/", () => {
     const fautifs = walk(SRC)
       .filter((f) => IMPORTE_THREE.test(readFileSync(f, "utf8")))
