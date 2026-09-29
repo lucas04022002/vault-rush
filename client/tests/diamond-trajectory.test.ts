@@ -74,7 +74,7 @@ describe("la chute rejoue le chemin du serveur", () => {
         expect(p.y).toBeCloseTo(level(i), 12);
         // Et ce x est bien celui d'un clou de la rangée i.
         const index = p.x + i / 2;
-        expect(Number.isInteger(Math.round(index * 1e9) / 1e9)).toBe(true);
+        expect(Math.abs(index - Math.round(index))).toBeLessThan(1e-9);
         expect(index).toBeGreaterThanOrEqual(0);
         expect(index).toBeLessThanOrEqual(i);
       }
@@ -102,6 +102,25 @@ describe("la chute rejoue le chemin du serveur", () => {
     const path = [false, false];
     expect(gemPosition(path, -3)).toEqual(gemPosition(path, 0));
     expect(gemPosition(path, 99)).toEqual(gemPosition(path, 2));
+  });
+
+  it("le rebond est nul aux rangées entières : la chute est continue d'un clou à l'autre", () => {
+    for (const path of chemins(100)) {
+      for (let i = 1; i <= path.length; i++) {
+        const pile = gemPosition(path, i);
+        for (const voisin of [gemPosition(path, i - 1e-9), gemPosition(path, i + 1e-9)]) {
+          expect(voisin.x).toBeCloseTo(pile.x, 6);
+          expect(voisin.y).toBeCloseTo(pile.y, 6);
+        }
+      }
+    }
+  });
+
+  it("au quart du trajet, l'arc vaut les trois quarts de son sommet", () => {
+    const path = [true, false, true];
+    const quart = gemPosition(path, 1.25);
+    const ligneDroite = level(1) + (level(2) - level(1)) * 0.25;
+    expect(quart.y).toBeCloseTo(ligneDroite + 0.75 * HOP, 12);
   });
 });
 
