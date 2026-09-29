@@ -77,12 +77,18 @@ export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
   useEffect(() => {
     if (!chute || posee) return;
     if (rangee >= chute.path.length) {
-      setPosee(true);
-      return;
+      if (!en3d) {
+        setPosee(true);
+        return;
+      }
+      // En 3D, le diamant met encore une rangée à toucher sa case : le bilan, le toast et le son
+      // attendent son arrivée au lieu de la devancer.
+      const arrivee = setTimeout(() => setPosee(true), msParRangee);
+      return () => clearTimeout(arrivee);
     }
     const minuteur = setTimeout(() => setRangee((r) => r + 1), msParRangee);
     return () => clearTimeout(minuteur);
-  }, [chute, posee, rangee, msParRangee]);
+  }, [chute, posee, rangee, msParRangee, en3d]);
 
   // Le son ne part qu'une fois le diamant posé, pas au clic.
   useEffect(() => {

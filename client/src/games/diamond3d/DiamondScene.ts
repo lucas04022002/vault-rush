@@ -103,6 +103,11 @@ export class DiamondScene {
   private visee = 0;
   private posee: number | null = null;
   private arrivee = false;
+  /**
+   * Vrai quand le chemin arrive déjà terminé (plateau remonté ou repris après l'arrivée) :
+   * la case s'allume, mais sans gerbe ni pulsation — la fête a déjà eu lieu.
+   */
+  private arriveeSilencieuse = false;
   private rowMs = 140;
   private pulse = 0;
   private eclats: Points<BufferGeometry, PointsMaterial> | null = null;
@@ -210,6 +215,7 @@ export class DiamondScene {
       this.path = path;
       // Un lâcher neuf part du diamant en attente (rangée « −1 ») ; une reprise saute à la rangée courante.
       this.affichee = path && row === 0 ? -1 : row;
+      this.arriveeSilencieuse = path !== null && row >= path.length;
       this.eteindre();
     }
     this.visee = row;
@@ -221,8 +227,10 @@ export class DiamondScene {
   private readonly tick = (dt: number): boolean => {
     let bouge = false;
     if (this.affichee < this.visee) {
-      // Jamais plus d'une rangée de retard sur l'écran : si les images se font rares (onglet en
-      // arrière-plan, téléphone qui peine), le diamant rattrape au lieu d'arriver après le bilan.
+      // Jamais plus d'une rangée de retard sur la rangée de l'écran : si les images se font rares
+      // (onglet en arrière-plan, téléphone qui peine), le diamant rattrape. Une rangée reste
+      // possible : c'est pourquoi l'écran retient le bilan et le son d'une rangée en 3D, le temps
+      // que le diamant touche sa case.
       this.affichee = Math.max(this.affichee, this.visee - 1);
       this.affichee = Math.min(this.visee, this.affichee + dt / this.rowMs);
       bouge = true;
@@ -309,6 +317,7 @@ export class DiamondScene {
     }
     // Sur la case allumée, le chiffre passe en sombre (la couleur de la texture est multipliée).
     this.etiquettes[slot]?.material.color.setScalar(0.2);
+    if (this.arriveeSilencieuse) return;
     this.pulse = PULSE_MS;
     if ((this.slots[slot] ?? 0) >= CELEBRATE_FROM) this.jaillir(slot);
   }
@@ -355,7 +364,9 @@ export class DiamondScene {
     this.eclats = new Points(
       geometrie,
       new PointsMaterial({
-        color: new Color(CASE[heatOf(slot, this.slots.length)].lueur),
+        // Toujours la couleur de la case allumée : la lueur d'une case « froide » est presque
+        // celle du fond, les éclats y seraient invisibles.
+        color: new Color(NEON.gem),
         size: 0.12,
         transparent: true,
         depthWrite: false,

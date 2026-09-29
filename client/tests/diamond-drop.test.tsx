@@ -555,6 +555,44 @@ describe("la vue 3D", () => {
     expect(screen.getByTestId("plateau-3d")).toHaveAttribute("data-landed", "0");
   });
 
+  it("en 3D, le bilan attend une rangée de plus : il tombe avec le diamant, pas avant", async () => {
+    simulerWebGL();
+    dropApi()
+      .on("GET /api/games/diamond-drop/current", { json: { round: partie() } })
+      .on("POST /api/games/diamond-drop/play", {
+        json: {
+          round: partie({ status: "cashed_out", step: 1, multiplier: 6.03, payoutCents: 6030, cashoutCents: 6030 }),
+          path: GAUCHE,
+          slot: 0,
+          multiplier: 6.03,
+        },
+      })
+      .install();
+    renderApp("/jeux/diamond-drop");
+
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const utilisateur = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await utilisateur.click(await screen.findByRole("button", { name: "Lâcher le diamant" }));
+    const plateau = await screen.findByTestId("plateau-3d");
+
+    // On avance jusqu'à la dernière rangée de l'écran (8) : le diamant n'a pas encore touché sa case.
+    for (let ms = 0; ms < 2000 && plateau.getAttribute("data-row") !== "8"; ms++) {
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+    }
+    expect(plateau).toHaveAttribute("data-row", "8");
+    expect(screen.queryByRole("table", { name: "Bilan de la partie" })).not.toBeInTheDocument();
+    expect(plateau).toHaveAttribute("data-landed", "");
+
+    // Une rangée plus tard (140 ms, plus une marge pour l'horloge qui avance seule), le bilan et l'arrivée.
+    act(() => {
+      vi.advanceTimersByTime(170);
+    });
+    expect(await screen.findByRole("table", { name: "Bilan de la partie" })).toBeInTheDocument();
+    expect(screen.getByTestId("plateau-3d")).toHaveAttribute("data-landed", "0");
+  });
+
   it("si la 3D lève pendant la chute, la 2D prend le relais, la bascule le dit, et la partie suivante retente la 3D", async () => {
     simulerWebGL();
     const api = dropApi()

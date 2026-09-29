@@ -10,6 +10,7 @@ import {
   PerspectiveCamera,
   PlaneGeometry,
   Points,
+  type PointsMaterial,
   Scene,
 } from "three";
 import { DiamondScene, type DiamondState } from "../src/games/diamond3d/DiamondScene.ts";
@@ -30,7 +31,7 @@ const GAUCHE = Array.from({ length: ROWS }, () => false);
 const ROW_MS = 140;
 const REPOS: DiamondState = { path: null, row: 0, landedSlot: null };
 
-function banc() {
+function banc(slots: number[] = DOUX) {
   const scene = new Scene();
   let tick: Tick | null = null;
   const stage = {
@@ -42,7 +43,7 @@ function banc() {
     },
     dispose() {},
   } as Stage;
-  const diamant = new DiamondScene(stage, ROWS, DOUX);
+  const diamant = new DiamondScene(stage, ROWS, slots);
   diamant.setRowMs(ROW_MS);
 
   // Les objets, retrouvés par leur géométrie : c'est ce que voit le rendu.
@@ -169,5 +170,34 @@ describe("DiamondScene", () => {
     b.diamant.update({ path: GAUCHE, row: ROWS, landedSlot: 0 });
     b.ecouler(3000);
     expect(b.tick(16)).toBe(false);
+  });
+
+  it("les éclats sont de la couleur de la case allumée, même sur une case froide", () => {
+    // Une case du centre (« froide ») à ×3 : rare, mais c'est ce qui rend l'éclat visible ou non.
+    const centre = [6.03, 2.13, 1.14, 0.8, 3, 0.8, 1.14, 2.13, 6.03];
+    const alterne = [true, false, true, false, true, false, true, false]; // case 4
+    const b = banc(centre);
+    b.diamant.update({ path: alterne, row: 0, landedSlot: null });
+    b.tick(0);
+    b.diamant.update({ path: alterne, row: ROWS, landedSlot: 4 });
+    b.ecouler(400);
+
+    const [eclats] = b.eclats();
+    expect(eclats).toBeDefined();
+    expect((eclats.material as PointsMaterial).color.getHexString()).toBe("c08bff");
+  });
+
+  it("un plateau remonté après l'arrivée allume la case sans rejouer la fête", () => {
+    const b = banc();
+    // Reprise : le chemin arrive déjà terminé, avec sa case d'arrivée.
+    b.diamant.update({ path: GAUCHE, row: ROWS, landedSlot: 0 });
+    b.ecouler(400);
+
+    expect(b.cases[0].material.emissive.getHexString()).toBe("c08bff");
+    expect(b.cases[0].material.emissiveIntensity).toBe(0.5);
+    expect(b.etiquettes[0].material.color.r).toBeCloseTo(0.2, 6);
+    // Ni gerbe d'éclats, ni pulsation de l'étiquette.
+    expect(b.eclats()).toHaveLength(0);
+    expect(b.etiquettes[0].scale.x).toBe(1);
   });
 });
