@@ -1,10 +1,14 @@
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { api, type GameConfig, type Round } from "../api.ts";
 import { Amount, Button, PageTitle, Toast } from "../components/index.ts";
 import { formatCoins, formatMultiplier } from "../lib/format.ts";
 import { playOutcome } from "../lib/sound.ts";
 import { useSession } from "../session.tsx";
+import { Fallback } from "../three/Fallback.tsx";
+import { RenderToggle } from "../three/RenderToggle.tsx";
+import { prefersReducedMotion } from "../three/support.ts";
+import { useRenderMode } from "../three/useRenderMode.ts";
 import { BetForm, RewardPanel } from "./BetForm.tsx";
 import { accentFor } from "./boards/index.ts";
 import { DiamondBoard } from "./DiamondBoard.tsx";
@@ -15,6 +19,9 @@ import { dropModes, viewOf, type DropDrop, type DropModeView } from "./drop.ts";
 import { heatOf } from "./heat.ts";
 import { useRound } from "./useRound.ts";
 import "./diamond-drop.css";
+
+/** Le plateau 3D, chargé à la demande : c'est lui qui fait entrer `three` dans le site. */
+const DiamondBoard3D = lazy(() => import("./diamond3d/DiamondBoard3D.tsx"));
 
 /**
  * L'écran de Diamond Drop (genre `drop`).
@@ -27,14 +34,16 @@ import "./diamond-drop.css";
 /** Durée d'une rangée de chute, en millisecondes. */
 const MS_PAR_RANGEE = 90;
 
-/** Vrai si le navigateur demande à ne pas animer (jsdom n'a pas `matchMedia`). */
-function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
+/** En 3D, une rangée dure plus longtemps : le temps de voir le rebond sur chaque clou. */
+const MS_PAR_RANGEE_3D = 140;
 
 export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
   const { balanceCents, setBalance } = useSession();
+  const rendu = useRenderMode();
+  /** La 3D a levé pendant cette partie : on montre le plateau 2D jusqu'à la partie suivante. */
+  const [echec3d, setEchec3d] = useState(false);
+  const en3d = rendu.mode === "3d" && !echec3d;
+  const msParRangee = en3d ? MS_PAR_RANGEE_3D : MS_PAR_RANGEE;
 
   /** La chute en cours : le chemin reçu du serveur et la case d'arrivée. */
   const [chute, setChute] = useState<DropDrop | null>(null);
@@ -46,6 +55,7 @@ export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
     setChute(null);
     setRangee(0);
     setPosee(false);
+    setEchec3d(false);
   }, []);
 
   const partie = useRound(gameId, { config: jeu, onReset });
@@ -67,12 +77,18 @@ export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
   useEffect(() => {
     if (!chute || posee) return;
     if (rangee >= chute.path.length) {
-      setPosee(true);
-      return;
+      if (!en3d) {
+        setPosee(true);
+        return;
+      }
+      // En 3D, le diamant met encore une rangée à toucher sa case : le bilan, le toast et le son
+      // attendent son arrivée au lieu de la devancer.
+      const arrivee = setTimeout(() => setPosee(true), msParRangee);
+      return () => clearTimeout(arrivee);
     }
-    const minuteur = setTimeout(() => setRangee((r) => r + 1), MS_PAR_RANGEE);
+    const minuteur = setTimeout(() => setRangee((r) => r + 1), msParRangee);
     return () => clearTimeout(minuteur);
-  }, [chute, posee, rangee]);
+  }, [chute, posee, rangee, msParRangee, en3d]);
 
   // Le son ne part qu'une fois le diamant posé, pas au clic.
   useEffect(() => {
@@ -126,6 +142,16 @@ export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
           ? "Fin de partie"
           : "Le diamant tombe…";
 
+  const plateau2D = vue ? (
+    <DiamondBoard
+      rows={vue.rows}
+      slots={vue.slots}
+      path={chute?.path ?? null}
+      row={rangee}
+      landedSlot={posee ? (chute?.slot ?? null) : null}
+    />
+  ) : null;
+
   return (
     <>
       <PageTitle eyebrow={`${config.format} · coins fictifs`} accent={accentFor(config.id)}>
@@ -172,24 +198,44 @@ export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
 
       {round && vue ? (
         <section className="panel gamepanel" data-game="diamond-drop" aria-label="Plateau">
-          <p className="dd-head">
+          <div className="dd-head">
             <span className="dd-head__mode">{`Mode ${mode.label} · ${vue.rows} rangées`}</span>
             <span className="dd-head__bet">
               {`Mise `}
               <Amount cents={round.betCents} />
             </span>
-          </p>
+            <RenderToggle
+              mode={en3d ? "3d" : "2d"}
+              possible={rendu.possible}
+              // Après un échec de la 3D, le bouton décoché veut dire « réessaie la 3D » :
+              // basculer la préférence la ferait passer en 2D, l'inverse de ce qui est demandé.
+              onToggle={echec3d ? () => setEchec3d(false) : rendu.toggle}
+            />
+          </div>
 
           {/* Les deux chiffres qui comptent, avant même de regarder la bande. */}
           <Reperes slots={vue.slots} />
 
-          <DiamondBoard
-            rows={vue.rows}
-            slots={vue.slots}
-            path={chute?.path ?? null}
-            row={rangee}
-            landedSlot={posee ? (chute?.slot ?? null) : null}
-          />
+          {en3d ? (
+            <Fallback
+              fallback={plateau2D}
+              resetKey={round.id}
+              onError={() => setEchec3d(true)}
+            >
+              <Suspense fallback={plateau2D}>
+                <DiamondBoard3D
+                  rows={vue.rows}
+                  slots={vue.slots}
+                  path={chute?.path ?? null}
+                  row={rangee}
+                  landedSlot={posee ? (chute?.slot ?? null) : null}
+                  rowMs={MS_PAR_RANGEE_3D}
+                />
+              </Suspense>
+            </Fallback>
+          ) : (
+            plateau2D
+          )}
 
           {/* La bande défile ; cette liste-ci, jamais : elle est verticale. */}
           <ToutesLesCases

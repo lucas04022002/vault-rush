@@ -1,10 +1,29 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { baseApi } from "./helpers/fake-api.ts";
 import { renderApp } from "./helpers/render.tsx";
 import { heatOf } from "../src/games/heat.ts";
 import { offsetAt } from "../src/games/drop.ts";
+import type { DiamondBoard3DProps } from "../src/games/diamond3d/DiamondBoard3D.tsx";
+
+/** Un test qui veut une 3D en panne (contexte WebGL perdu) met `casser3d` à vrai. */
+const etat3d = vi.hoisted(() => ({ casser3d: false }));
+
+// Pas de WebGL dans jsdom : le plateau 3D est remplacé par un témoin qui montre ses props.
+vi.mock("../src/games/diamond3d/DiamondBoard3D.tsx", () => ({
+  default: (p: DiamondBoard3DProps) => {
+    if (etat3d.casser3d) throw new Error("contexte WebGL perdu");
+    return (
+      <div
+        data-testid="plateau-3d"
+        data-row={p.row}
+        data-row-ms={p.rowMs}
+        data-landed={p.landedSlot ?? ""}
+      />
+    );
+  },
+}));
 
 /**
  * L'écran de Diamond Drop, dans l'application réelle (routeur + session + hook).
@@ -100,6 +119,9 @@ function dropApi() {
 
 afterEach(() => {
   vi.useRealTimers();
+  // Le test « prefers-reduced-motion » pose un `matchMedia` global : sans ceci, il
+  // fuit vers les tests suivants, qui verraient « mouvement réduit » et donc pas de 3D.
+  vi.unstubAllGlobals();
 });
 
 describe("Diamond Drop", () => {
@@ -441,5 +463,226 @@ describe("le mode Fou reste lisible sur un téléphone", () => {
     expect(arrivée).toHaveAttribute("aria-current", "true");
     // Une seule case marquée : celle où le diamant est tombé.
     expect(liste.querySelectorAll('tr[data-landed="true"]')).toHaveLength(1);
+  });
+});
+
+describe("la vue 3D", () => {
+  function simulerWebGL() {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      getExtension: () => null,
+    } as never);
+  }
+
+  afterEach(() => {
+    window.localStorage.clear();
+    etat3d.casser3d = false;
+  });
+
+  it("sans WebGL, ni bouton ni plateau 3D : la 2D d'aujourd'hui", async () => {
+    dropApi().on("GET /api/games/diamond-drop/current", { json: { round: partie() } }).install();
+    renderApp("/jeux/diamond-drop");
+
+    expect(await screen.findByRole("region", { name: "Plateau de clous" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Vue 3D" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("plateau-3d")).not.toBeInTheDocument();
+  });
+
+  it("avec WebGL, le plateau 3D prend la place, et la bascule ramène la 2D", async () => {
+    simulerWebGL();
+    dropApi().on("GET /api/games/diamond-drop/current", { json: { round: partie() } }).install();
+    renderApp("/jeux/diamond-drop");
+
+    expect(await screen.findByTestId("plateau-3d")).toBeInTheDocument();
+    const bascule = screen.getByRole("button", { name: "Vue 3D" });
+    expect(bascule).toHaveAttribute("aria-pressed", "true");
+
+    await userEvent.click(bascule);
+    expect(screen.getByRole("region", { name: "Plateau de clous" })).toBeInTheDocument();
+    expect(screen.queryByTestId("plateau-3d")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Vue 3D" })).toHaveAttribute("aria-pressed", "false");
+    expect(window.localStorage.getItem("vaultrush_render")).toBe("2d");
+  });
+
+  it("en 3D, la chute avance au rythme de 140 ms par rangée jusqu'au bilan", async () => {
+    simulerWebGL();
+    dropApi()
+      .on("GET /api/games/diamond-drop/current", { json: { round: partie() } })
+      .on("POST /api/games/diamond-drop/play", {
+        json: {
+          round: partie({ status: "cashed_out", step: 1, multiplier: 6.03, payoutCents: 6030, cashoutCents: 6030 }),
+          path: GAUCHE,
+          slot: 0,
+          multiplier: 6.03,
+        },
+      })
+      .install();
+    renderApp("/jeux/diamond-drop");
+
+    // Horloge simulée : le temps ne passe que par `advanceTimersByTime`, à la milliseconde.
+    // `shouldAdvanceTime` laisse tourner les attentes de la bibliothèque de test.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const utilisateur = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await utilisateur.click(await screen.findByRole("button", { name: "Lâcher le diamant" }));
+    const plateau = await screen.findByTestId("plateau-3d");
+    expect(plateau).toHaveAttribute("data-row-ms", "140");
+
+    // Le vrai rythme de l'écran : on avance l'horloge milliseconde par milliseconde (chaque rangée
+    // réarme la minuterie de la suivante à la sortie de `act`) et on compte le temps entre deux
+    // changements de rangée. `shouldAdvanceTime` laisse filer quelques ms réelles : d'où la marge.
+    const rangéeAffichée = () => Number(plateau.getAttribute("data-row"));
+    const msJusquAuChangement = () => {
+      const avant = rangéeAffichée();
+      for (let ms = 1; ms <= 400; ms++) {
+        act(() => {
+          vi.advanceTimersByTime(1);
+        });
+        if (rangéeAffichée() !== avant) return ms;
+      }
+      return Infinity;
+    };
+    msJusquAuChangement(); // se cale sur un changement de rangée
+    const intervalle = msJusquAuChangement();
+    expect(intervalle).toBeGreaterThanOrEqual(140);
+    expect(intervalle).toBeLessThanOrEqual(150);
+
+    // 8 rangées à 140 ms, plus le pas qui pose le diamant : le bilan arrive.
+    for (let i = 0; i < 8; i++) {
+      act(() => {
+        vi.advanceTimersByTime(140);
+      });
+    }
+    expect(await screen.findByRole("table", { name: "Bilan de la partie" })).toBeInTheDocument();
+    expect(screen.getByTestId("plateau-3d")).toHaveAttribute("data-landed", "0");
+  });
+
+  it("en 3D, le bilan attend une rangée de plus : il tombe avec le diamant, pas avant", async () => {
+    simulerWebGL();
+    dropApi()
+      .on("GET /api/games/diamond-drop/current", { json: { round: partie() } })
+      .on("POST /api/games/diamond-drop/play", {
+        json: {
+          round: partie({ status: "cashed_out", step: 1, multiplier: 6.03, payoutCents: 6030, cashoutCents: 6030 }),
+          path: GAUCHE,
+          slot: 0,
+          multiplier: 6.03,
+        },
+      })
+      .install();
+    renderApp("/jeux/diamond-drop");
+
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const utilisateur = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await utilisateur.click(await screen.findByRole("button", { name: "Lâcher le diamant" }));
+    const plateau = await screen.findByTestId("plateau-3d");
+
+    // On avance jusqu'à la dernière rangée de l'écran (8) : le diamant n'a pas encore touché sa case.
+    for (let ms = 0; ms < 2000 && plateau.getAttribute("data-row") !== "8"; ms++) {
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+    }
+    expect(plateau).toHaveAttribute("data-row", "8");
+    expect(screen.queryByRole("table", { name: "Bilan de la partie" })).not.toBeInTheDocument();
+    expect(plateau).toHaveAttribute("data-landed", "");
+
+    // Une rangée plus tard (140 ms, plus une marge pour l'horloge qui avance seule), le bilan et l'arrivée.
+    act(() => {
+      vi.advanceTimersByTime(170);
+    });
+    expect(await screen.findByRole("table", { name: "Bilan de la partie" })).toBeInTheDocument();
+    expect(screen.getByTestId("plateau-3d")).toHaveAttribute("data-landed", "0");
+  });
+
+  it("si la 3D lève pendant la chute, la 2D prend le relais, la bascule le dit, et la partie suivante retente la 3D", async () => {
+    simulerWebGL();
+    const api = dropApi()
+      .on("GET /api/games/diamond-drop/current", { json: { round: partie() } })
+      .on("POST /api/games/diamond-drop/play", {
+        json: {
+          round: partie({ status: "cashed_out", step: 1, multiplier: 6.03, payoutCents: 6030, cashoutCents: 6030 }),
+          path: GAUCHE,
+          slot: 0,
+          multiplier: 6.03,
+        },
+      })
+      .on("POST /api/games/diamond-drop/start", { status: 201, json: { round: partie({ id: 8 }) } })
+      .on("GET /api/wallet", { json: { balanceCents: 105_030 } });
+    api.install();
+    renderApp("/jeux/diamond-drop");
+
+    expect(await screen.findByTestId("plateau-3d")).toBeInTheDocument();
+
+    // La 3D tombe en panne au moment du lâcher. React journalise l'erreur attrapée : on la fait
+    // taire le temps du test.
+    const console_error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      etat3d.casser3d = true;
+      await userEvent.click(screen.getByRole("button", { name: "Lâcher le diamant" }));
+
+      // Le plateau 2D est là, et la bascule ne prétend plus que la 3D est affichée.
+      expect(await screen.findByRole("region", { name: "Plateau de clous" })).toBeInTheDocument();
+      expect(screen.queryByTestId("plateau-3d")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Vue 3D" })).toHaveAttribute("aria-pressed", "false");
+
+      // La chute se joue en 2D (90 ms par rangée) jusqu'au bilan.
+      await screen.findByRole("table", { name: "Bilan de la partie" }, { timeout: 4000 });
+      expect(screen.getByRole("region", { name: "Plateau de clous" })).toBeInTheDocument();
+
+      // La bascule décochée veut dire « réessaie la 3D » : elle ne doit pas enregistrer la 2D.
+      etat3d.casser3d = false;
+      await userEvent.click(screen.getByRole("button", { name: "Vue 3D" }));
+      expect(await screen.findByTestId("plateau-3d")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Vue 3D" })).toHaveAttribute("aria-pressed", "true");
+      expect(window.localStorage.getItem("vaultrush_render")).not.toBe("2d");
+
+      // Partie suivante : le plateau 3D est toujours là (le repli n'est pas collant).
+      await userEvent.click(screen.getByRole("button", { name: "Rejouer (même mise, même mode)" }));
+      expect(await screen.findByTestId("plateau-3d")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Vue 3D" })).toHaveAttribute("aria-pressed", "true");
+    } finally {
+      console_error.mockRestore();
+    }
+  });
+
+  it("basculer en 3D en pleine chute reprend à la rangée courante, pas à zéro", async () => {
+    simulerWebGL();
+    window.localStorage.setItem("vaultrush_render", "2d");
+    dropApi()
+      .on("GET /api/games/diamond-drop/current", { json: { round: partie() } })
+      .on("POST /api/games/diamond-drop/play", {
+        json: {
+          round: partie({ status: "cashed_out", step: 1, multiplier: 6.03, payoutCents: 6030, cashoutCents: 6030 }),
+          path: GAUCHE,
+          slot: 0,
+          multiplier: 6.03,
+        },
+      })
+      .install();
+    renderApp("/jeux/diamond-drop");
+
+    // Horloge simulée : la chute 2D avance de 90 ms en 90 ms, sans dépendre de la machine.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const utilisateur = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await utilisateur.click(await screen.findByRole("button", { name: "Lâcher le diamant" }));
+    expect(await screen.findByRole("region", { name: "Plateau de clous" })).toBeInTheDocument();
+    expect(screen.queryByTestId("plateau-3d")).not.toBeInTheDocument();
+
+    // La hauteur du diamant 2D (`--dd-y`) vaut rangée / 8.
+    const rangéeEn2D = () => {
+      const gem = document.querySelector<HTMLElement>(".dd-gem");
+      return Math.round(Number(gem?.style.getPropertyValue("--dd-y")) * 8);
+    };
+    for (let i = 0; i < 4; i++) {
+      act(() => {
+        vi.advanceTimersByTime(90);
+      });
+    }
+    const avancées = rangéeEn2D();
+    expect(avancées).toBeGreaterThanOrEqual(3);
+    expect(avancées).toBeLessThan(8);
+
+    await utilisateur.click(screen.getByRole("button", { name: "Vue 3D" }));
+    const plateau = await screen.findByTestId("plateau-3d");
+    expect(Number(plateau.getAttribute("data-row"))).toBeGreaterThanOrEqual(avancées);
   });
 });

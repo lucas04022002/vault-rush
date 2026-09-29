@@ -184,6 +184,26 @@
   justify-content: center;
 }
 
+/* ------------------------------ La vue 3D ------------------------------ */
+
+/* Carré sur un téléphone (un plateau de 16 rangées est à peu près carré),
+   jamais plus haut que l'écran sur un ordinateur. */
+.dd-stage {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: min(70vh, 560px);
+  border-radius: var(--r-sm);
+  border: 2px solid var(--line);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.dd-stage .stage3d {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 /* ------------------------- Mouvement réduit ------------------------- */
 
 @media (prefers-reduced-motion: reduce) {

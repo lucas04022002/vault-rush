@@ -33,3 +33,16 @@ globalThis.Request = JsdomFriendlyRequest as unknown as typeof Request;
 afterEach(() => {
   cleanup();
 });
+
+/**
+ * jsdom n'a pas de WebGL : `getContext` y écrit « Not implemented » en console à
+ * chaque appel. Un canvas de test ne dessine rien, et `webglAvailable()` doit y
+ * répondre « non » sans bruit. Un test qui veut simuler WebGL remplace ce stub par
+ * `vi.spyOn(HTMLCanvasElement.prototype, "getContext")`.
+ *
+ * La garde `HTMLCanvasElement` est nécessaire : ce fichier tourne aussi pour les
+ * tests marqués `// @vitest-environment node`, où l'interface n'existe pas.
+ */
+if (typeof HTMLCanvasElement !== "undefined") {
+  HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext;
+}

@@ -19,14 +19,13 @@ const commun = {
   stroke: "currentColor",
   strokeLinecap: "round" as const,
   strokeLinejoin: "round" as const,
-  "aria-hidden": true,
   focusable: false,
 };
 
 /** Des portes qui montent en perspective : chaque étage, un choix. */
 function MonteeScene() {
   return (
-    <svg {...commun}>
+    <svg {...commun} aria-hidden="true">
       <path d="M0 108h320" strokeWidth="2" opacity="0.25" />
       {/* `width`/`height`, et non `w`/`h` : abrégés, les rectangles étaient
           posés sans dimensions — donc invisibles, alors que les poignées
@@ -57,7 +56,7 @@ function MonteeScene() {
 /** Une grille de faisceaux, et la trouée qu'il faut trouver. */
 function LaserScene() {
   return (
-    <svg {...commun}>
+    <svg {...commun} aria-hidden="true">
       {[26, 52, 78, 104].map((y) => (
         <path key={y} d={`M0 ${y}h320`} strokeWidth="2" opacity="0.28" />
       ))}
@@ -76,7 +75,7 @@ function LaserScene() {
 /** Une route qui bifurque, vue du dessus : à chaque tronçon, deux issues. */
 function FuiteScene() {
   return (
-    <svg {...commun}>
+    <svg {...commun} aria-hidden="true">
       <path d="M160 132V96" strokeWidth="5" />
       <path d="M160 96 96 56M160 96l64-40" strokeWidth="4" />
       <path d="M96 56 54 22M96 56l-6 40" strokeWidth="3" opacity="0.6" />
@@ -93,7 +92,7 @@ function FuiteScene() {
 /** Quatre câbles au-dessus d'une minuterie : en couper un, et partir. */
 function BombeScene() {
   return (
-    <svg {...commun}>
+    <svg {...commun} aria-hidden="true">
       <path d="M0 30h320" strokeWidth="2" opacity="0.25" />
       {[70, 130, 190, 250].map((x, i) => (
         <path
@@ -116,7 +115,7 @@ function BombeScene() {
 /** Un clavier de coffre : quatre chiffres, et les essais qui restent. */
 function CodeScene() {
   return (
-    <svg {...commun}>
+    <svg {...commun} aria-hidden="true">
       <rect x="92" y="10" width="136" height="112" rx="8" strokeWidth="3.5" />
       <rect x="108" y="24" width="104" height="26" rx="4" strokeWidth="3" opacity="0.6" />
       {[0, 1, 2, 3].map((i) => (
@@ -142,7 +141,7 @@ function CodeScene() {
 /** Un diamant qui tombe dans les clous : le hasard décide, pas le joueur. */
 function ChuteScene() {
   return (
-    <svg {...commun}>
+    <svg {...commun} aria-hidden="true">
       <path d="M160 6l11 13-11 13-11-13z" strokeWidth="3.5" />
       {[0, 1, 2, 3].map((ligne) =>
         Array.from({ length: ligne + 3 }, (_, col) => (
@@ -169,7 +168,7 @@ function ChuteScene() {
 /** Deux cartes et des jetons : tirer, ou rester. */
 function CartesScene() {
   return (
-    <svg {...commun}>
+    <svg {...commun} aria-hidden="true">
       <g transform="rotate(-12 118 70)">
         <rect x="82" y="26" width="72" height="94" rx="8" strokeWidth="3.5" />
         <path d="M118 58l10 12-10 12-10-12z" strokeWidth="3" opacity="0.7" />
