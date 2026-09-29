@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import { render, screen } from "@testing-library/react";
@@ -95,6 +95,60 @@ describe("Fallback", () => {
         <p>plateau 3D</p>
       </Fallback>,
     );
+    expect(screen.getByText("plateau 3D")).toBeInTheDocument();
+    expect(screen.queryByText("plateau 2D")).not.toBeInTheDocument();
+  });
+
+  it("prévient l'écran quand la 3D échoue", () => {
+    const console_error = console.error;
+    console.error = () => {};
+    const onError = vi.fn();
+    try {
+      render(
+        <Fallback fallback={<p>plateau 2D</p>} onError={onError}>
+          <Casse />
+        </Fallback>,
+      );
+    } finally {
+      console.error = console_error;
+    }
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it("retente la 3D quand resetKey change, et pas avant", () => {
+    let casse = true;
+    function Fragile() {
+      if (casse) throw new Error("contexte WebGL perdu");
+      return <p>plateau 3D</p>;
+    }
+    const console_error = console.error;
+    console.error = () => {};
+    try {
+      const { rerender } = render(
+        <Fallback fallback={<p>plateau 2D</p>} resetKey={1}>
+          <Fragile />
+        </Fallback>,
+      );
+      expect(screen.getByText("plateau 2D")).toBeInTheDocument();
+
+      // Même clé : le repli reste, même si la 3D irait mieux.
+      casse = false;
+      rerender(
+        <Fallback fallback={<p>plateau 2D</p>} resetKey={1}>
+          <Fragile />
+        </Fallback>,
+      );
+      expect(screen.getByText("plateau 2D")).toBeInTheDocument();
+
+      // Autre clé (autre partie) : la 3D revient.
+      rerender(
+        <Fallback fallback={<p>plateau 2D</p>} resetKey={2}>
+          <Fragile />
+        </Fallback>,
+      );
+    } finally {
+      console.error = console_error;
+    }
     expect(screen.getByText("plateau 3D")).toBeInTheDocument();
     expect(screen.queryByText("plateau 2D")).not.toBeInTheDocument();
   });

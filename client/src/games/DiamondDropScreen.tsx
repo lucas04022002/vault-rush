@@ -40,7 +40,10 @@ const MS_PAR_RANGEE_3D = 140;
 export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
   const { balanceCents, setBalance } = useSession();
   const rendu = useRenderMode();
-  const msParRangee = rendu.mode === "3d" ? MS_PAR_RANGEE_3D : MS_PAR_RANGEE;
+  /** La 3D a levé pendant cette partie : on montre le plateau 2D jusqu'à la partie suivante. */
+  const [echec3d, setEchec3d] = useState(false);
+  const en3d = rendu.mode === "3d" && !echec3d;
+  const msParRangee = en3d ? MS_PAR_RANGEE_3D : MS_PAR_RANGEE;
 
   /** La chute en cours : le chemin reçu du serveur et la case d'arrivée. */
   const [chute, setChute] = useState<DropDrop | null>(null);
@@ -52,6 +55,7 @@ export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
     setChute(null);
     setRangee(0);
     setPosee(false);
+    setEchec3d(false);
   }, []);
 
   const partie = useRound(gameId, { config: jeu, onReset });
@@ -194,14 +198,18 @@ export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
               {`Mise `}
               <Amount cents={round.betCents} />
             </span>
-            <RenderToggle mode={rendu.mode} possible={rendu.possible} onToggle={rendu.toggle} />
+            <RenderToggle mode={en3d ? "3d" : "2d"} possible={rendu.possible} onToggle={rendu.toggle} />
           </div>
 
           {/* Les deux chiffres qui comptent, avant même de regarder la bande. */}
           <Reperes slots={vue.slots} />
 
-          {rendu.mode === "3d" ? (
-            <Fallback fallback={plateau2D}>
+          {en3d ? (
+            <Fallback
+              fallback={plateau2D}
+              resetKey={round.id}
+              onError={() => setEchec3d(true)}
+            >
               <Suspense fallback={plateau2D}>
                 <DiamondBoard3D
                   rows={vue.rows}

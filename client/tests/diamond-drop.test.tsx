@@ -7,16 +7,22 @@ import { heatOf } from "../src/games/heat.ts";
 import { offsetAt } from "../src/games/drop.ts";
 import type { DiamondBoard3DProps } from "../src/games/diamond3d/DiamondBoard3D.tsx";
 
+/** Un test qui veut une 3D en panne (contexte WebGL perdu) met `casser3d` à vrai. */
+const etat3d = vi.hoisted(() => ({ casser3d: false }));
+
 // Pas de WebGL dans jsdom : le plateau 3D est remplacé par un témoin qui montre ses props.
 vi.mock("../src/games/diamond3d/DiamondBoard3D.tsx", () => ({
-  default: (p: DiamondBoard3DProps) => (
-    <div
-      data-testid="plateau-3d"
-      data-row={p.row}
-      data-row-ms={p.rowMs}
-      data-landed={p.landedSlot ?? ""}
-    />
-  ),
+  default: (p: DiamondBoard3DProps) => {
+    if (etat3d.casser3d) throw new Error("contexte WebGL perdu");
+    return (
+      <div
+        data-testid="plateau-3d"
+        data-row={p.row}
+        data-row-ms={p.rowMs}
+        data-landed={p.landedSlot ?? ""}
+      />
+    );
+  },
 }));
 
 /**
@@ -469,6 +475,7 @@ describe("la vue 3D", () => {
 
   afterEach(() => {
     window.localStorage.clear();
+    etat3d.casser3d = false;
   });
 
   it("sans WebGL, ni bouton ni plateau 3D : la 2D d'aujourd'hui", async () => {
@@ -546,5 +553,50 @@ describe("la vue 3D", () => {
     }
     expect(await screen.findByRole("table", { name: "Bilan de la partie" })).toBeInTheDocument();
     expect(screen.getByTestId("plateau-3d")).toHaveAttribute("data-landed", "0");
+  });
+
+  it("si la 3D lève pendant la chute, la 2D prend le relais, la bascule le dit, et la partie suivante retente la 3D", async () => {
+    simulerWebGL();
+    const api = dropApi()
+      .on("GET /api/games/diamond-drop/current", { json: { round: partie() } })
+      .on("POST /api/games/diamond-drop/play", {
+        json: {
+          round: partie({ status: "cashed_out", step: 1, multiplier: 6.03, payoutCents: 6030, cashoutCents: 6030 }),
+          path: GAUCHE,
+          slot: 0,
+          multiplier: 6.03,
+        },
+      })
+      .on("POST /api/games/diamond-drop/start", { status: 201, json: { round: partie({ id: 8 }) } })
+      .on("GET /api/wallet", { json: { balanceCents: 105_030 } });
+    api.install();
+    renderApp("/jeux/diamond-drop");
+
+    expect(await screen.findByTestId("plateau-3d")).toBeInTheDocument();
+
+    // La 3D tombe en panne au moment du lâcher. React journalise l'erreur attrapée : on la fait
+    // taire le temps du test.
+    const console_error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      etat3d.casser3d = true;
+      await userEvent.click(screen.getByRole("button", { name: "Lâcher le diamant" }));
+
+      // Le plateau 2D est là, et la bascule ne prétend plus que la 3D est affichée.
+      expect(await screen.findByRole("region", { name: "Plateau de clous" })).toBeInTheDocument();
+      expect(screen.queryByTestId("plateau-3d")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Vue 3D" })).toHaveAttribute("aria-pressed", "false");
+
+      // La chute se joue en 2D (90 ms par rangée) jusqu'au bilan.
+      await screen.findByRole("table", { name: "Bilan de la partie" }, { timeout: 4000 });
+      expect(screen.getByRole("region", { name: "Plateau de clous" })).toBeInTheDocument();
+
+      // Partie suivante, 3D rétablie : le plateau 3D revient (le repli n'est pas collant).
+      etat3d.casser3d = false;
+      await userEvent.click(screen.getByRole("button", { name: "Rejouer (même mise, même mode)" }));
+      expect(await screen.findByTestId("plateau-3d")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Vue 3D" })).toHaveAttribute("aria-pressed", "true");
+    } finally {
+      console_error.mockRestore();
+    }
   });
 });
