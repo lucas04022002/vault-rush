@@ -47,6 +47,9 @@ describe("la préférence", () => {
   });
 
   it("survit à un stockage interdit (navigation privée)", () => {
+    // Garde-fou : si un substitut de localStorage revenait, les espions ci-dessous
+    // ne seraient jamais appelés et le test passerait à vide.
+    expect(window.localStorage).toBeInstanceOf(Storage);
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("interdit");
     });
