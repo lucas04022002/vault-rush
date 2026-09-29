@@ -5,6 +5,19 @@ import { baseApi } from "./helpers/fake-api.ts";
 import { renderApp } from "./helpers/render.tsx";
 import { heatOf } from "../src/games/heat.ts";
 import { offsetAt } from "../src/games/drop.ts";
+import type { DiamondBoard3DProps } from "../src/games/diamond3d/DiamondBoard3D.tsx";
+
+// Pas de WebGL dans jsdom : le plateau 3D est remplacé par un témoin qui montre ses props.
+vi.mock("../src/games/diamond3d/DiamondBoard3D.tsx", () => ({
+  default: (p: DiamondBoard3DProps) => (
+    <div
+      data-testid="plateau-3d"
+      data-row={p.row}
+      data-row-ms={p.rowMs}
+      data-landed={p.landedSlot ?? ""}
+    />
+  ),
+}));
 
 /**
  * L'écran de Diamond Drop, dans l'application réelle (routeur + session + hook).
@@ -100,6 +113,9 @@ function dropApi() {
 
 afterEach(() => {
   vi.useRealTimers();
+  // Le test « prefers-reduced-motion » pose un `matchMedia` global : sans ceci, il
+  // fuit vers les tests suivants, qui verraient « mouvement réduit » et donc pas de 3D.
+  vi.unstubAllGlobals();
 });
 
 describe("Diamond Drop", () => {
@@ -441,5 +457,66 @@ describe("le mode Fou reste lisible sur un téléphone", () => {
     expect(arrivée).toHaveAttribute("aria-current", "true");
     // Une seule case marquée : celle où le diamant est tombé.
     expect(liste.querySelectorAll('tr[data-landed="true"]')).toHaveLength(1);
+  });
+});
+
+describe("la vue 3D", () => {
+  function simulerWebGL() {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      getExtension: () => null,
+    } as never);
+  }
+
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("sans WebGL, ni bouton ni plateau 3D : la 2D d'aujourd'hui", async () => {
+    dropApi().on("GET /api/games/diamond-drop/current", { json: { round: partie() } }).install();
+    renderApp("/jeux/diamond-drop");
+
+    expect(await screen.findByRole("region", { name: "Plateau de clous" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Vue 3D" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("plateau-3d")).not.toBeInTheDocument();
+  });
+
+  it("avec WebGL, le plateau 3D prend la place, et la bascule ramène la 2D", async () => {
+    simulerWebGL();
+    dropApi().on("GET /api/games/diamond-drop/current", { json: { round: partie() } }).install();
+    renderApp("/jeux/diamond-drop");
+
+    expect(await screen.findByTestId("plateau-3d")).toBeInTheDocument();
+    const bascule = screen.getByRole("button", { name: "Vue 3D" });
+    expect(bascule).toHaveAttribute("aria-pressed", "true");
+
+    await userEvent.click(bascule);
+    expect(screen.getByRole("region", { name: "Plateau de clous" })).toBeInTheDocument();
+    expect(screen.queryByTestId("plateau-3d")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Vue 3D" })).toHaveAttribute("aria-pressed", "false");
+    expect(window.localStorage.getItem("vaultrush_render")).toBe("2d");
+  });
+
+  it("en 3D, la chute avance au rythme de 140 ms par rangée jusqu'au bilan", async () => {
+    simulerWebGL();
+    dropApi()
+      .on("GET /api/games/diamond-drop/current", { json: { round: partie() } })
+      .on("POST /api/games/diamond-drop/play", {
+        json: {
+          round: partie({ status: "cashed_out", step: 1, multiplier: 6.03, payoutCents: 6030, cashoutCents: 6030 }),
+          path: GAUCHE,
+          slot: 0,
+          multiplier: 6.03,
+        },
+      })
+      .install();
+    renderApp("/jeux/diamond-drop");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Lâcher le diamant" }));
+    const plateau = await screen.findByTestId("plateau-3d");
+    expect(plateau).toHaveAttribute("data-row-ms", "140");
+
+    // 8 rangées à 140 ms, plus le pas qui pose le diamant : le bilan arrive.
+    expect(await screen.findByRole("table", { name: "Bilan de la partie" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByTestId("plateau-3d")).toHaveAttribute("data-landed", "0");
   });
 });
