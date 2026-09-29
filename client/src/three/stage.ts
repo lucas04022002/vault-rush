@@ -61,8 +61,8 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   const composer = new EffectComposer(renderer);
   const passes = [
     new RenderPass(scene, camera),
-    // Halo néon : force 0,9, rayon 0,5, seuil 0,2 (seuls les objets lumineux brillent).
-    new UnrealBloomPass(new Vector2(256, 256), 0.9, 0.5, 0.2),
+    // Halo néon : force 0,8, rayon 0,4, seuil 0,5 — seuls les néons brillent ; à 0,2, le fond éclairé brillait aussi.
+    new UnrealBloomPass(new Vector2(256, 256), 0.8, 0.4, 0.5),
     new OutputPass(),
   ];
   for (const passe of passes) composer.addPass(passe);

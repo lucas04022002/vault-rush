@@ -39,6 +39,12 @@ import {
 const TILT = -0.35;
 /** Le diamant et les clous sont un peu devant le fond du plateau. */
 const GEM_Z = 0.15;
+/**
+ * Recul de la caméra au-delà du cadrage exact. L'inclinaison rapproche les cases du joueur,
+ * donc elles paraissent plus larges que le plan visé : sans cette marge, les cases des bords
+ * touchent le cadre sur un téléphone (mesuré le 29/09/2026 : 1,05 ne suffisait pas).
+ */
+const FIT_MARGIN = 1.15;
 /** Temps caractéristique du glissement de la caméra, en ms. */
 const CAMERA_MS = 140;
 /** Durée de la gerbe d'éclats et de la pulsation de la case, en ms. */
@@ -52,8 +58,8 @@ export type DiamondState = { path: boolean[] | null; row: number; landedSlot: nu
 
 /** Les couleurs d'une case selon sa chaleur, comme en 2D (`diamond-drop.css`). */
 const CASE: Record<SlotHeat, { fond: string; lueur: string; intensite: number; encre: string }> = {
-  chaud: { fond: NEON.gem, lueur: NEON.gem, intensite: 0.55, encre: NEON.gemInk },
-  tiede: { fond: NEON.panel2, lueur: NEON.gemShadow, intensite: 0.35, encre: NEON.gem },
+  chaud: { fond: NEON.gem, lueur: NEON.gem, intensite: 0.25, encre: NEON.gemInk },
+  tiede: { fond: NEON.panel2, lueur: NEON.gemShadow, intensite: 0.3, encre: NEON.gem },
   froid: { fond: NEON.panel2, lueur: NEON.panel2, intensite: 0, encre: NEON.dim },
 };
 
@@ -88,7 +94,7 @@ export class DiamondScene {
   private readonly board = new Group();
   private readonly gem: Mesh;
   private readonly cases: Mesh<BoxGeometry, MeshStandardMaterial>[] = [];
-  private readonly etiquettes: Mesh[] = [];
+  private readonly etiquettes: Mesh<PlaneGeometry, MeshBasicMaterial>[] = [];
   private readonly camera = { x: 0, y: 0, width: 1, height: 1 };
   private readonly cible = new Vector3();
 
@@ -114,7 +120,8 @@ export class DiamondScene {
     const vue = overview(rows);
     const fond = new Mesh(
       new PlaneGeometry(vue.width + 0.6, vue.height + 0.6),
-      new MeshStandardMaterial({ color: new Color(NEON.panel), roughness: 0.95 }),
+      // Fond mat, insensible aux lumières : éclairé, il virait au lilas délavé sous le halo.
+      new MeshBasicMaterial({ color: new Color(NEON.panel) }),
     );
     fond.position.set(0, vue.y, -0.25);
     this.board.add(fond);
@@ -201,7 +208,8 @@ export class DiamondScene {
   update({ path, row, landedSlot }: DiamondState): void {
     if (path !== this.path) {
       this.path = path;
-      this.affichee = row;
+      // Un lâcher neuf part du diamant en attente (rangée « −1 ») ; une reprise saute à la rangée courante.
+      this.affichee = path && row === 0 ? -1 : row;
       this.eteindre();
     }
     this.visee = row;
@@ -213,11 +221,14 @@ export class DiamondScene {
   private readonly tick = (dt: number): boolean => {
     let bouge = false;
     if (this.affichee < this.visee) {
+      // Jamais plus d'une rangée de retard sur l'écran : si les images se font rares (onglet en
+      // arrière-plan, téléphone qui peine), le diamant rattrape au lieu d'arriver après le bilan.
+      this.affichee = Math.max(this.affichee, this.visee - 1);
       this.affichee = Math.min(this.visee, this.affichee + dt / this.rowMs);
       bouge = true;
     }
 
-    const p = this.path ? gemPosition(this.path, this.affichee) : restPosition();
+    const p = this.position();
     this.gem.position.set(p.x, p.y, GEM_Z);
     if (bouge) this.gem.rotation.y += dt * 0.008;
 
@@ -230,11 +241,32 @@ export class DiamondScene {
       this.arriver(this.posee);
     }
 
-    const camBouge = this.suivre(this.path ? follow(this.rows, p) : overview(this.rows), dt);
+    const camBouge = this.suivre(this.cadrage(p), dt);
     const pulse = this.pulser(dt);
     const eclats = this.animerEclats(dt);
     return bouge || camBouge || pulse || eclats;
   };
+
+  /** Où dessiner le diamant : en attente, entre l'attente et le premier clou, ou sur le chemin. */
+  private position(): Point {
+    if (!this.path) return restPosition();
+    if (this.affichee >= 0) return gemPosition(this.path, this.affichee);
+    const depart = restPosition();
+    const clou = gemPosition(this.path, 0);
+    const u = this.affichee + 1;
+    return { x: depart.x + (clou.x - depart.x) * u, y: depart.y + (clou.y - depart.y) * u };
+  }
+
+  /**
+   * Ce que la caméra vise : tout le plateau au repos, le diamant pendant la chute (un peu en
+   * avance vers le bas), et la case d'arrivée une fois posé — centrée, sinon la moitié basse
+   * du cadre ne montrait que le vide sous les cases.
+   */
+  private cadrage(p: Point): Focus {
+    if (!this.path) return overview(this.rows);
+    const suivi = follow(this.rows, p);
+    return this.arrivee ? { ...suivi, y: p.y - SLOT_HEIGHT } : suivi;
+  }
 
   /** La caméra glisse vers ce qu'elle doit montrer ; `true` tant qu'elle n'y est pas. */
   private suivre(focus: Focus, dt: number): boolean {
@@ -257,7 +289,7 @@ export class DiamondScene {
     const distance = Math.max(
       this.camera.width / 2 / Math.tan(hfov / 2),
       this.camera.height / 2 / Math.tan(vfov / 2),
-    ) * 1.05;
+    ) * FIT_MARGIN;
 
     this.board.updateMatrixWorld();
     this.cible.set(this.camera.x, this.camera.y, 0);
@@ -269,7 +301,14 @@ export class DiamondScene {
   private arriver(slot: number): void {
     this.arrivee = true;
     const boite = this.cases[slot];
-    if (boite) boite.material.emissiveIntensity = 2.2;
+    if (boite) {
+      // Même une case banale s'allume en améthyste : c'est ELLE que le joueur doit voir.
+      boite.material.emissive.set(NEON.gem);
+      // 0,5 et pas plus : au-delà, le halo rend la case blanche et son multiplicateur illisible.
+      boite.material.emissiveIntensity = 0.5;
+    }
+    // Sur la case allumée, le chiffre passe en sombre (la couleur de la texture est multipliée).
+    this.etiquettes[slot]?.material.color.setScalar(0.2);
     this.pulse = PULSE_MS;
     if ((this.slots[slot] ?? 0) >= CELEBRATE_FROM) this.jaillir(slot);
   }
@@ -278,9 +317,14 @@ export class DiamondScene {
     if (!this.arrivee) return;
     this.arrivee = false;
     this.cases.forEach((boite, index) => {
-      boite.material.emissiveIntensity = CASE[heatOf(index, this.slots.length)].intensite;
+      const teinte = CASE[heatOf(index, this.slots.length)];
+      boite.material.emissive.set(teinte.lueur);
+      boite.material.emissiveIntensity = teinte.intensite;
     });
-    for (const texte of this.etiquettes) texte.scale.set(1, 1, 1);
+    for (const texte of this.etiquettes) {
+      texte.scale.set(1, 1, 1);
+      texte.material.color.setScalar(1);
+    }
     this.retirerEclats();
   }
 
@@ -320,6 +364,9 @@ export class DiamondScene {
     );
     this.vitesses = vitesses;
     this.ageEclats = 0;
+    // La sphère englobante est calculée au départ (rayon nul) : sans ceci, les éclats
+    // disparaîtraient dès que la caméra ne voit plus leur point de départ.
+    this.eclats.frustumCulled = false;
     this.board.add(this.eclats);
   }
 
