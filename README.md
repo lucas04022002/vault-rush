@@ -59,6 +59,14 @@ veut. Les quatre jeux sont le **même moteur** avec d'autres paramètres.
 |---|---|---|---|---|
 | **Diamond Drop** — un diamant tombe de clou en clou et atterrit dans une case | 8 à 16 rangées | Doux 8 · Nerveux 12 · Fou 16 rangées | 97,65 % · 95,20 % · 93,56 % | **calculé exactement** : `Σ P(k)·mult(k)` sur la binomiale, sans aucune simulation ; l'arrondi des cases se fait vers le BAS, le RTP réel est donc un cheveu sous `1 − avantage` |
 
+**En 3D** (Three.js) quand l'appareil le permet : un vrai diamant rebondit de clou en clou,
+la caméra le suit, la case d'arrivée s'allume. La 3D ne décide de rien : elle rejoue le
+chemin tiré par le serveur. Le bouton « Vue 3D » ramène le plateau 2D (le choix est
+retenu), et la 2D s'affiche d'office sans WebGL ou sous « mouvement réduit ». Three.js
+n'est téléchargé qu'à l'ouverture du jeu en 3D : `client/scripts/garde-poids.mjs` fait
+échouer le build s'il entre dans le JavaScript de l'accueil. Captures :
+[`docs/captures/2026-09-29-diamond-drop-3d-*`](docs/captures/).
+
 ### Cartes (`engine/blackjack.ts`)
 
 | Jeu | Format | Modes | RTP annoncé | Comment |
@@ -227,6 +235,8 @@ Le détail est dans [`docs/PROPOSITIONS-AMELIORATIONS.md`](docs/PROPOSITIONS-AME
 (et le cahier d'origine dans [`docs/vault_rush_plan.md`](docs/vault_rush_plan.md)) :
 
 - ~~Getaway~~, ~~Bomb Squad~~, ~~Vault Code~~, ~~Diamond Drop~~, ~~Blackjack~~ : **livrés**.
+- **Les jeux en 3D**, un par un sur le socle `client/src/three/` : ~~Diamond Drop~~ livré ;
+  puis Vault Rush, Laser Grid, Getaway, Bomb Squad, Vault Code, Blackjack Express.
 - Safecracker, Heist Crew : le socle multi-moteurs en absorbe déjà l'essentiel.
 - **Progression commune** : niveaux, missions, succès, cosmétiques — hors périmètre de
   cette refonte, volontairement.
