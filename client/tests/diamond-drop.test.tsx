@@ -637,4 +637,46 @@ describe("la vue 3D", () => {
       console_error.mockRestore();
     }
   });
+
+  it("basculer en 3D en pleine chute reprend à la rangée courante, pas à zéro", async () => {
+    simulerWebGL();
+    window.localStorage.setItem("vaultrush_render", "2d");
+    dropApi()
+      .on("GET /api/games/diamond-drop/current", { json: { round: partie() } })
+      .on("POST /api/games/diamond-drop/play", {
+        json: {
+          round: partie({ status: "cashed_out", step: 1, multiplier: 6.03, payoutCents: 6030, cashoutCents: 6030 }),
+          path: GAUCHE,
+          slot: 0,
+          multiplier: 6.03,
+        },
+      })
+      .install();
+    renderApp("/jeux/diamond-drop");
+
+    // Horloge simulée : la chute 2D avance de 90 ms en 90 ms, sans dépendre de la machine.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const utilisateur = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await utilisateur.click(await screen.findByRole("button", { name: "Lâcher le diamant" }));
+    expect(await screen.findByRole("region", { name: "Plateau de clous" })).toBeInTheDocument();
+    expect(screen.queryByTestId("plateau-3d")).not.toBeInTheDocument();
+
+    // La hauteur du diamant 2D (`--dd-y`) vaut rangée / 8.
+    const rangéeEn2D = () => {
+      const gem = document.querySelector<HTMLElement>(".dd-gem");
+      return Math.round(Number(gem?.style.getPropertyValue("--dd-y")) * 8);
+    };
+    for (let i = 0; i < 4; i++) {
+      act(() => {
+        vi.advanceTimersByTime(90);
+      });
+    }
+    const avancées = rangéeEn2D();
+    expect(avancées).toBeGreaterThanOrEqual(3);
+    expect(avancées).toBeLessThan(8);
+
+    await utilisateur.click(screen.getByRole("button", { name: "Vue 3D" }));
+    const plateau = await screen.findByTestId("plateau-3d");
+    expect(Number(plateau.getAttribute("data-row"))).toBeGreaterThanOrEqual(avancées);
+  });
 });
