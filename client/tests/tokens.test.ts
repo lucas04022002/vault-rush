@@ -20,6 +20,13 @@ const TOKENS = join(SRC, "styles", "tokens.css");
 
 const THEME_COLOR_EXCEPTION = /<meta\s+name="theme-color"/i;
 
+/**
+ * Seconde exception nommée : `three/palette.ts`. Three.js ne lit pas les
+ * variables CSS ; le fichier redit les jetons en chaînes hex, et
+ * `three-socle.test.tsx` verrouille chacune sur son jeton de `tokens.css`.
+ */
+const PALETTE_3D = join(SRC, "three", "palette.ts");
+
 function walk(dir: string): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(dir)) {
@@ -41,7 +48,7 @@ function token(name: string): string {
 }
 
 describe("jetons de couleur", () => {
-  const files = [...walk(SRC), INDEX].filter((f) => f !== TOKENS);
+  const files = [...walk(SRC), INDEX].filter((f) => f !== TOKENS && f !== PALETTE_3D);
 
   it("trouve des fichiers à scanner", () => {
     expect(files.length).toBeGreaterThan(5);
