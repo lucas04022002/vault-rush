@@ -204,7 +204,13 @@ export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
               {`Mise `}
               <Amount cents={round.betCents} />
             </span>
-            <RenderToggle mode={en3d ? "3d" : "2d"} possible={rendu.possible} onToggle={rendu.toggle} />
+            <RenderToggle
+              mode={en3d ? "3d" : "2d"}
+              possible={rendu.possible}
+              // Après un échec de la 3D, le bouton décoché veut dire « réessaie la 3D » :
+              // basculer la préférence la ferait passer en 2D, l'inverse de ce qui est demandé.
+              onToggle={echec3d ? () => setEchec3d(false) : rendu.toggle}
+            />
           </div>
 
           {/* Les deux chiffres qui comptent, avant même de regarder la bande. */}

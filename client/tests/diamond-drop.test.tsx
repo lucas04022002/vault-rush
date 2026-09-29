@@ -628,8 +628,14 @@ describe("la vue 3D", () => {
       await screen.findByRole("table", { name: "Bilan de la partie" }, { timeout: 4000 });
       expect(screen.getByRole("region", { name: "Plateau de clous" })).toBeInTheDocument();
 
-      // Partie suivante, 3D rétablie : le plateau 3D revient (le repli n'est pas collant).
+      // La bascule décochée veut dire « réessaie la 3D » : elle ne doit pas enregistrer la 2D.
       etat3d.casser3d = false;
+      await userEvent.click(screen.getByRole("button", { name: "Vue 3D" }));
+      expect(await screen.findByTestId("plateau-3d")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Vue 3D" })).toHaveAttribute("aria-pressed", "true");
+      expect(window.localStorage.getItem("vaultrush_render")).not.toBe("2d");
+
+      // Partie suivante : le plateau 3D est toujours là (le repli n'est pas collant).
       await userEvent.click(screen.getByRole("button", { name: "Rejouer (même mise, même mode)" }));
       expect(await screen.findByTestId("plateau-3d")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Vue 3D" })).toHaveAttribute("aria-pressed", "true");
