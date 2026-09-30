@@ -17,6 +17,9 @@ import type { Stage } from "../../three/stage.ts";
 import type { Contenu } from "../echelle3d/logique.ts";
 import { type OptionBase, PROFONDEUR, SceneEchelle, texte } from "../echelle3d/SceneEchelle.ts";
 
+/** Opacité des vitres : assez pour qu'on voie le verre, pas au point de cacher la salle (0,42 les rendait opaques). */
+const VITRE = 0.22;
+
 /** Noms propres à Laser Grid : les tests et le débogage les retrouvent ainsi. */
 export const NOMS_LASER = {
   vitre: "vitre",
@@ -162,18 +165,18 @@ export class LaserScene extends SceneEchelle<Case> {
         metalness: 0.1,
         roughness: 0.08,
         transparent: true,
-        opacity: 0.42,
+        opacity: VITRE,
         envMap: this.stage.studio,
-        envMapIntensity: 1.2,
+        envMapIntensity: 0.45,
         emissive: new Color(NEON.cyan),
-        emissiveIntensity: 0.12,
+        emissiveIntensity: 0.04,
       }),
     );
     vitre.name = NOMS_LASER.vitre;
     racine.add(vitre);
     const chiffre = new Mesh(
-      new PlaneGeometry(r * 0.7, r * 0.35),
-      new MeshBasicMaterial({ map: texte(String(numero), NEON.cyan, null), transparent: true, toneMapped: false }),
+      new PlaneGeometry(r * 0.9, r * 0.45),
+      new MeshBasicMaterial({ map: texte(String(numero), NEON.text, null), transparent: true, toneMapped: false }),
     );
     chiffre.position.z = 0.04;
     racine.add(chiffre);
@@ -206,7 +209,7 @@ export class LaserScene extends SceneEchelle<Case> {
     // La vitre s'enfonce dans le sol et s'efface ; le numéro part avec elle.
     const descente = c.r * 2.1 * u * u;
     c.vitre.position.y = -descente;
-    c.vitre.material.opacity = 0.42 * (1 - u);
+    c.vitre.material.opacity = VITRE * (1 - u);
     c.numero.position.y = -descente;
     c.numero.material.opacity = 1 - u;
     // Le fond s'éclaire peu à peu de la couleur de ce qu'il cache.

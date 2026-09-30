@@ -34,9 +34,9 @@ export const NOMS_BOMBE = {
 } as const;
 
 type Cable = OptionBase & {
-  /** Les deux moitiés du câble : elles s'écartent quand on le coupe. */
-  haut: Mesh<TubeGeometry, MeshStandardMaterial>;
-  bas: Mesh<TubeGeometry, MeshStandardMaterial>;
+  /** Les deux moitiés du câble, chacune accrochée à sa borne : coupées, elles se rétractent et pendent. */
+  haut: Group;
+  bas: Group;
   /** Le voyant du câble : éteint, vert s'il est neutralisé, rouge s'il a déclenché. */
   voyant: Mesh<SphereGeometry, MeshBasicMaterial>;
   /** Le souffle de l'explosion : une boule orange qui enfle et s'efface. */
@@ -137,24 +137,31 @@ export class BombScene extends SceneEchelle<Cable> {
       envMap: this.stage.studio,
       envMapIntensity: 0.5,
     });
-    const moitie = (depart: number) =>
-      new TubeGeometry(
-        new CatmullRomCurve3([
-          new Vector3(0, depart * demi, 0),
-          new Vector3(r * 0.06, depart * demi * 0.5, 0.12),
-          new Vector3(0, 0, 0.18),
-        ]),
-        24,
-        r * 0.07,
-        10,
+    // Chaque moitié part de sa borne (l'origine de son groupe) et rejoint l'autre au milieu.
+    const moitie = (sens: number, nom: string) => {
+      const accroche = new Group();
+      accroche.name = nom;
+      accroche.position.y = sens * demi;
+      const tube = new Mesh(
+        new TubeGeometry(
+          new CatmullRomCurve3([
+            new Vector3(0, 0, 0),
+            new Vector3(r * 0.06, -sens * demi * 0.5, 0.12),
+            new Vector3(0, -sens * demi, 0.18),
+          ]),
+          24,
+          r * 0.1,
+          10,
+        ),
+        gaine,
       );
-    const haut = new Mesh(moitie(1), gaine);
-    haut.name = NOMS_BOMBE.haut;
-    haut.castShadow = true;
-    const bas = new Mesh(moitie(-1), gaine);
-    bas.name = NOMS_BOMBE.bas;
-    bas.castShadow = true;
-    racine.add(haut, bas);
+      tube.castShadow = true;
+      accroche.add(tube);
+      racine.add(accroche);
+      return accroche;
+    };
+    const haut = moitie(1, NOMS_BOMBE.haut);
+    const bas = moitie(-1, NOMS_BOMBE.bas);
 
     // Le voyant et le numéro, sous la borne du bas.
     const voyant = new Mesh(
@@ -162,13 +169,13 @@ export class BombScene extends SceneEchelle<Cable> {
       new MeshBasicMaterial({ color: new Color(NEON.panel2), toneMapped: false }),
     );
     voyant.name = NOMS_BOMBE.voyant;
-    voyant.position.set(-r * 0.4, -demi - r * 0.1, 0.12);
+    voyant.position.set(-r * 0.32, -demi - r * 0.42, 0.12);
     racine.add(voyant);
     const chiffre = new Mesh(
-      new PlaneGeometry(r * 0.6, r * 0.3),
+      new PlaneGeometry(r * 0.8, r * 0.4),
       new MeshBasicMaterial({ map: texte(String(numero), NEON.orange, null), transparent: true, toneMapped: false }),
     );
-    chiffre.position.set(r * 0.1, -demi - r * 0.1, 0.12);
+    chiffre.position.set(r * 0.18, -demi - r * 0.42, 0.12);
     racine.add(chiffre);
 
     // Le souffle de l'explosion.
@@ -207,12 +214,12 @@ export class BombScene extends SceneEchelle<Cable> {
   }
 
   protected peindre(c: Cable, u: number): void {
-    // Coupé net : les deux moitiés s'écartent et se tordent un peu.
-    const ecart = c.r * 0.35 * Math.min(u * 2.5, 1);
-    c.haut.position.y = ecart;
-    c.bas.position.y = -ecart;
-    c.haut.rotation.z = 0.25 * Math.min(u * 2.5, 1);
-    c.bas.rotation.z = -0.2 * Math.min(u * 2.5, 1);
+    // Coupé net : chaque moitié se rétracte vers sa borne et pend de travers.
+    const k = Math.min(u * 2.5, 1);
+    c.haut.scale.y = 1 - 0.3 * k;
+    c.bas.scale.y = 1 - 0.3 * k;
+    c.haut.rotation.z = 0.3 * k;
+    c.bas.rotation.z = -0.22 * k;
     if (c.contenu === "cachee") {
       c.voyant.material.color.set(NEON.panel2);
       return;

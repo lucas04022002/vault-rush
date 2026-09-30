@@ -1,6 +1,5 @@
 import {
   BoxGeometry,
-  CircleGeometry,
   Color,
   Group,
   Mesh,
@@ -8,6 +7,8 @@ import {
   MeshStandardMaterial,
   type Object3D,
   PlaneGeometry,
+  Shape,
+  ShapeGeometry,
   SphereGeometry,
   TorusGeometry,
 } from "three";
@@ -24,7 +25,7 @@ export const NOMS_GETAWAY = {
 
 type Tunnel = OptionBase & {
   /** L'intérieur du tunnel : noir tant qu'on n'y voit rien, éclairé quand la voie est libre. */
-  interieur: Mesh<CircleGeometry, MeshBasicMaterial>;
+  interieur: Mesh<ShapeGeometry, MeshBasicMaterial>;
   /** La voie libre : des bandes blanches qui filent dans le tunnel. */
   voie: Group;
   /** Le barrage : une barrière rayée qui tombe, et deux gyrophares de police. */
@@ -56,7 +57,8 @@ export class GetawayScene extends SceneEchelle<Tunnel> {
     const nuit = new Group();
     const beton = new Mesh(
       new PlaneGeometry(largeur * 1.3, hauteur * 3.2),
-      new MeshStandardMaterial({ color: new Color(NEON.panel), roughness: 0.92, metalness: 0.05 }),
+      // Un béton violet-gris : assez clair pour qu'on le voie de nuit (en `panel`, il était noir).
+      new MeshStandardMaterial({ color: new Color(MATIERES.acier), roughness: 0.92, metalness: 0.05 }),
     );
     beton.receiveShadow = true;
     nuit.add(beton);
@@ -84,18 +86,31 @@ export class GetawayScene extends SceneEchelle<Tunnel> {
       envMapIntensity: 0.3,
     });
 
-    // L'intérieur : un disque noir, qui s'éclaire.
+    // L'intérieur : la bouche du tunnel, noire, qui s'éclaire (une voûte sur deux murs droits).
+    const bas = -r * 0.62;
+    const bouche = new Shape();
+    bouche.moveTo(-r * 0.86, bas);
+    bouche.lineTo(r * 0.86, bas);
+    bouche.lineTo(r * 0.86, 0);
+    bouche.absarc(0, 0, r * 0.86, 0, Math.PI, false);
+    bouche.lineTo(-r * 0.86, bas);
     const interieur = new Mesh(
-      new CircleGeometry(r * 0.86, 40),
+      new ShapeGeometry(bouche, 24),
       new MeshBasicMaterial({ color: new Color(NEON.bg), toneMapped: false }),
     );
     interieur.position.z = -PROFONDEUR * 0.7;
     racine.add(interieur);
 
-    // L'arche : un anneau de béton épais autour de l'entrée, et deux piliers.
-    const arche = new Mesh(new TorusGeometry(r * 0.93, r * 0.12, 14, 48), beton);
-    arche.castShadow = true;
-    racine.add(arche);
+    // L'entrée : une voûte de béton en demi-cercle, posée sur deux piliers.
+    const voute = new Mesh(new TorusGeometry(r * 0.93, r * 0.12, 14, 40, Math.PI), beton);
+    voute.castShadow = true;
+    racine.add(voute);
+    for (const cote of [-1, 1]) {
+      const pilier = new Mesh(new BoxGeometry(r * 0.24, -bas, r * 0.24), beton);
+      pilier.position.set(cote * r * 0.93, bas / 2, 0);
+      pilier.castShadow = true;
+      racine.add(pilier);
+    }
 
     // La chaussée qui entre dans le tunnel.
     const chaussee = new Mesh(
@@ -108,10 +123,10 @@ export class GetawayScene extends SceneEchelle<Tunnel> {
 
     // Le panneau de route, au-dessus de l'arche.
     const panneau = new Mesh(
-      new PlaneGeometry(r * 1.1, r * 0.42),
+      new PlaneGeometry(r * 1.4, r * 0.5),
       new MeshBasicMaterial({ map: texte(`ROUTE ${numero}`, NEON.text, NEON.panel2, 256, 96), toneMapped: false }),
     );
-    panneau.position.set(0, r * 1.22, 0.06);
+    panneau.position.set(0, r * 1.3, 0.06);
     racine.add(panneau);
 
     // La voie libre : trois bandes blanches qui s'enfoncent vers le fond du tunnel.
@@ -154,7 +169,7 @@ export class GetawayScene extends SceneEchelle<Tunnel> {
 
     // Le liseré de survol : un anneau néon magenta autour de l'arche.
     const survol = new Mesh(
-      new TorusGeometry(r * 1.12, 0.025, 8, 64),
+      new TorusGeometry(r * 1.12, 0.025, 8, 48, Math.PI),
       new MeshBasicMaterial({ color: new Color(NEON.mag), toneMapped: false }),
     );
     racine.add(survol);

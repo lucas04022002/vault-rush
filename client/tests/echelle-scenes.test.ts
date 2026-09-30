@@ -129,14 +129,13 @@ describe("ce que chaque jeu montre derrière ses options", () => {
     expect(visibles(b, NOMS_GETAWAY.barrage)).toEqual([true, false, false]);
   });
 
-  it("Bomb Squad : le câble révélé est coupé en deux, le souffle seulement sur l'explosion", () => {
+  it("Bomb Squad : le câble révélé est coupé (ses moitiés se rétractent), le souffle seulement sur l'explosion", () => {
     const b = banc((s, n, e) => new BombScene(s, n, e) as never, 3, 4);
     b.jeu.montrer(["sure", "piege", "cachee"], 0);
     const [coupe, , intact] = b.options();
-    const ecart = (o: Object3D) =>
-      (o.getObjectByName(NOMS_BOMBE.haut)?.position.y ?? 0) - (o.getObjectByName(NOMS_BOMBE.bas)?.position.y ?? 0);
-    expect(ecart(coupe)).toBeGreaterThan(0);
-    expect(ecart(intact)).toBe(0);
+    const longueur = (o: Object3D) => o.getObjectByName(NOMS_BOMBE.haut)?.scale.y ?? 1;
+    expect(longueur(coupe)).toBeLessThan(1);
+    expect(longueur(intact)).toBe(1);
     expect(visibles(b, NOMS_BOMBE.souffle)).toEqual([false, true, false]);
   });
 });
