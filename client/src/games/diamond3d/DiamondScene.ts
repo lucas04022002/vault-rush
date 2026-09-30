@@ -60,6 +60,8 @@ const SPARK_COUNT = 64;
 export const CELEBRATE_FROM = 2;
 /** Durée de la vibration d'un clou touché, en ms. */
 export const CLOU_MS = 260;
+/** Intensité de la lueur améthyste de la case d'arrivée. */
+export const CASE_ALLUMEE = 1;
 /** Largeur (en cases) du cadre pendant le ralenti d'un gros gain : la caméra se resserre. */
 export const ZOOM_WIDTH = 4.5;
 /** Secousse de la caméra à l'arrivée d'un gros gain : durée (ms) et amplitude (en cases). */
@@ -170,11 +172,12 @@ export class DiamondScene {
       new PlaneGeometry(vue.width + 0.6, vue.height + 0.6),
       new MeshPhysicalMaterial({
         color: new Color(NEON.panel2),
-        metalness: 0.85,
-        roughness: 0.4,
-        anisotropy: 0.9,
+        metalness: 0.5,
+        roughness: 0.62,
+        anisotropy: 0.6,
         anisotropyRotation: Math.PI / 2,
-        envMapIntensity: 0.45,
+        envMap: stage.studio,
+        envMapIntensity: 0.12,
       }),
     );
     fond.name = NOMS.plateau;
@@ -183,7 +186,13 @@ export class DiamondScene {
     this.board.add(fond);
 
     // Un cadre chromé autour du plateau : quatre baguettes fines.
-    const chrome = new MeshStandardMaterial({ color: new Color(CHROME), metalness: 1, roughness: 0.18 });
+    const chrome = new MeshStandardMaterial({
+      color: new Color(CHROME),
+      metalness: 1,
+      roughness: 0.3,
+      envMap: stage.studio,
+      envMapIntensity: 0.6,
+    });
     const largeur = vue.width + 0.6;
     const hauteur = vue.height + 0.6;
     for (const [w, h, x, y] of [
@@ -197,12 +206,31 @@ export class DiamondScene {
       this.board.add(baguette);
     }
 
+    // Un liseré néon améthyste juste à l'intérieur du cadre : l'identité du site, sans halo.
+    const neon = new MeshBasicMaterial({ color: new Color(NEON.gem) });
+    const ecart = 0.1;
+    for (const [w, h, x, y] of [
+      [largeur - 2 * ecart, 0.025, 0, vue.y + hauteur / 2 - ecart],
+      [largeur - 2 * ecart, 0.025, 0, vue.y - hauteur / 2 + ecart],
+      [0.025, hauteur - 2 * ecart, -largeur / 2 + ecart, vue.y],
+      [0.025, hauteur - 2 * ecart, largeur / 2 - ecart, vue.y],
+    ] as const) {
+      const trait = new Mesh(new PlaneGeometry(w, h), neon);
+      trait.position.set(x, y, -0.24);
+      this.board.add(trait);
+    }
+
     // Les clous : une seule géométrie instanciée, en chrome qui reflète le studio. Chaque
     // instance a sa couleur (un clou touché s'éclaire en améthyste) et sa taille (il vibre).
     const total = (rows * (rows + 1)) / 2;
     this.clous = new InstancedMesh(
-      new SphereGeometry(0.085, 20, 16),
-      new MeshStandardMaterial({ color: new Color(MATIERES.cristal), metalness: 1, roughness: 0.12 }),
+      new SphereGeometry(0.1, 24, 18),
+      new MeshStandardMaterial({
+        color: new Color(MATIERES.cristal),
+        metalness: 1,
+        roughness: 0.12,
+        envMap: stage.studio,
+      }),
       total,
     );
     this.clous.name = NOMS.clous;
@@ -288,6 +316,7 @@ export class DiamondScene {
         iridescenceIOR: 1.6,
         attenuationColor: new Color(NEON.gem),
         attenuationDistance: 1.2,
+        envMap: this.stage.studio,
         envMapIntensity: 2.2,
         flatShading: true,
       }),
@@ -444,7 +473,15 @@ export class DiamondScene {
     const suivi = follow(this.rows, p);
     // Gros gain : pendant le ralenti, la caméra se resserre sur le diamant.
     const cadre = this.auRalenti() ? { ...suivi, width: Math.min(suivi.width, ZOOM_WIDTH) } : suivi;
-    return this.arrivee ? { ...cadre, y: p.y - SLOT_HEIGHT } : cadre;
+    const vise = this.arrivee ? p.y - SLOT_HEIGHT : cadre.y;
+    // Jamais de vide dans le cadre : ni le noir au-dessus du plateau au départ, ni celui sous
+    // les cases à l'arrivée (mesuré le 30/09 : la moitié basse de l'image était noire).
+    const plateau = overview(this.rows);
+    const demiHauteur = cadre.width / 2 / Math.max(this.stage.camera.aspect, 1e-3);
+    const haut = plateau.y + plateau.height / 2 - demiHauteur;
+    const bas = plateau.y - plateau.height / 2 + demiHauteur;
+    const y = bas > haut ? plateau.y : Math.min(Math.max(vise, bas), haut);
+    return { ...cadre, y };
   }
 
   /** La caméra glisse vers ce qu'elle doit montrer ; `true` tant qu'elle n'y est pas. */
@@ -491,8 +528,9 @@ export class DiamondScene {
     if (boite) {
       // Même une case banale s'allume en améthyste : c'est ELLE que le joueur doit voir.
       boite.material.emissive.set(NEON.gem);
-      // 0,5 et pas plus : au-delà, le halo rend la case blanche et son multiplicateur illisible.
-      boite.material.emissiveIntensity = 0.5;
+      // Sans halo depuis le rendu « studio », la case doit briller par elle-même ; son chiffre, passé en
+      // sombre, reste lisible.
+      boite.material.emissiveIntensity = CASE_ALLUMEE;
     }
     // Sur la case allumée, le chiffre passe en sombre (la couleur de la texture est multipliée).
     this.etiquettes[slot]?.material.color.setScalar(0.2);

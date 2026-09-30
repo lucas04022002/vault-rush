@@ -10,7 +10,6 @@ import {
   PMREMGenerator,
   Scene,
   Texture,
-  Vector2,
   WebGLRenderer,
 } from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
@@ -18,7 +17,6 @@ import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
-import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { createBoucle, type Tick } from "./boucle.ts";
 import { NEON } from "./palette.ts";
 import { type Qualite, qualiteRendu } from "./support.ts";
@@ -30,6 +28,8 @@ export type Stage = {
   camera: PerspectiveCamera;
   /** Le niveau de finition choisi pour cet appareil (voir `qualiteRendu`). */
   qualite: Qualite;
+  /** Les reflets du studio, à poser en `envMap` sur les matières brillantes (chrome, cristal, métal). */
+  studio: Texture;
   /** Distance de mise au point du flou de profondeur ; sans effet en qualité normale. */
   setFocus(distance: number): void;
   /** Une image, dès que possible (changement d'état, redimensionnement). */
@@ -42,7 +42,7 @@ export type Stage = {
 
 /**
  * La scène commune à tous les jeux : fond violet nuit, éclairage de studio pour les
- * reflets (chrome, cristal, métal), lumières néon, ombres douces, halo, et flou de
+ * reflets (chrome, cristal, métal), lumières néon, ombres douces, et flou de
  * profondeur sur un ordinateur.
  *
  * AUCUNE boucle permanente : une image n'est calculée que pendant `run` ou sur
@@ -62,17 +62,18 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   scene.background = new Color(NEON.bg);
   // Une salle de studio calculée sur place (aucun fichier à télécharger) : c'est elle que
   // reflètent le chrome, le cristal et le métal. Sans elle, un métal parfait paraît noir.
+  // Elle n'est PAS posée sur toute la scène : en lumière d'ambiance, cette salle blanche
+  // délavait le plateau et les cases (mesuré le 30/09). Chaque matière brillante la reçoit
+  // en `envMap`, par `stage.studio`.
   const pmrem = new PMREMGenerator(renderer);
   const studio = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   pmrem.dispose();
-  scene.environment = studio;
-  scene.environmentIntensity = 0.9;
 
   const camera = new PerspectiveCamera(40, 1, 0.1, 200);
 
   // Lumières communes : ambiance douce, blanc de face, rehauts magenta et cyan.
   scene.add(new AmbientLight(new Color(NEON.text), 0.15));
-  const face = new DirectionalLight(new Color(NEON.text), 1.6);
+  const face = new DirectionalLight(new Color(NEON.text), 0.9);
   face.position.set(0, 4, 10);
   scene.add(face);
   const gauche = new DirectionalLight(new Color(NEON.mag), 1.1);
@@ -91,8 +92,10 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
   const passes = [
     new RenderPass(scene, camera),
     ...(bokeh ? [bokeh] : []),
-    // Halo néon : force 0,8, rayon 0,4, seuil 0,5 — seuls les néons brillent ; à 0,2, le fond éclairé brillait aussi.
-    new UnrealBloomPass(new Vector2(256, 256), 0.8, 0.4, 0.5),
+    // Pas de halo (UnrealBloomPass) depuis l'éclairage de studio : les reflets du chrome valent
+    // bien plus que 1 en HDR, et le halo noyait le plateau dans un voile blanc à tous les seuils
+    // essayés (0,5 → 1,2) ; placé après la courbe de tons, il réencodait les couleurs (plateau
+    // gris). Mesuré le 30/09. Le chrome et le cristal brillent d'eux-mêmes.
     new OutputPass(),
   ];
   for (const passe of passes) composer.addPass(passe);
@@ -119,6 +122,7 @@ export function createStage(canvas: HTMLCanvasElement): Stage {
     scene,
     camera,
     qualite,
+    studio,
     setFocus(distance) {
       if (!bokeh) return;
       (bokeh.uniforms as { focus: { value: number } }).focus.value = distance;

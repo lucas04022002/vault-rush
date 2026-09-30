@@ -16,6 +16,7 @@ import {
   Vector3,
 } from "three";
 import {
+  CASE_ALLUMEE,
   CLOU_MS,
   DiamondScene,
   type DiamondState,
@@ -155,7 +156,7 @@ describe("DiamondScene", () => {
 
     expect(b.cases[0].material.emissive.getHexString()).toBe("c08bff");
     expect(NEON.gem.toLowerCase()).toBe("#c08bff");
-    expect(b.cases[0].material.emissiveIntensity).toBe(0.5);
+    expect(b.cases[0].material.emissiveIntensity).toBe(CASE_ALLUMEE);
     expect(b.etiquettes[0].material.color.r).toBeCloseTo(0.2, 6);
     expect(b.etiquettes[0].material.color.g).toBeCloseTo(0.2, 6);
     // ×6,03 : ça jaillit.
@@ -216,7 +217,7 @@ describe("DiamondScene", () => {
     b.ecouler(400);
 
     expect(b.cases[0].material.emissive.getHexString()).toBe("c08bff");
-    expect(b.cases[0].material.emissiveIntensity).toBe(0.5);
+    expect(b.cases[0].material.emissiveIntensity).toBe(CASE_ALLUMEE);
     expect(b.etiquettes[0].material.color.r).toBeCloseTo(0.2, 6);
     // Ni gerbe d'éclats, ni pulsation de l'étiquette.
     expect(b.eclats()).toHaveLength(0);
