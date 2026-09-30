@@ -1,7 +1,14 @@
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, lazy, useState } from "react";
 import { formatMultiplier } from "../../lib/format.ts";
 import { capitalize, modeOf } from "../labels.ts";
+import { plateauAvec3D } from "./avec3D.tsx";
 import { type BoardProps, STATE_WORD, progressLabel, revealWord, stepState } from "./types.ts";
+
+/** En 3D quand l'appareil le permet, en 2D sinon : voir `plateauAvec3D`. */
+export const GetawayBoard = plateauAvec3D(
+  GetawayBoard2D,
+  lazy(() => import("../getaway3d/GetawayBoard3D.tsx")),
+);
 
 /**
  * Le plateau de Getaway : une route qui défile, et la police derrière.
@@ -12,7 +19,7 @@ import { type BoardProps, STATE_WORD, progressLabel, revealWord, stepState } fro
  * derrière elle. La jauge de poursuite ne fait que relire `round.step` : elle
  * ne décide de rien, elle raconte.
  */
-export function GetawayBoard({ config, round, revealed, pending, onPick }: BoardProps) {
+export function GetawayBoard2D({ config, round, revealed, pending, onPick }: BoardProps) {
   const mode = modeOf(config, round.mode);
   const routes = mode?.options ?? revealed?.length ?? 0;
   const multipliers = mode?.multipliers ?? [];

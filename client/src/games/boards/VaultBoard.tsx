@@ -1,59 +1,17 @@
-import { type CSSProperties, lazy, Suspense, useState } from "react";
-import { Fallback } from "../../three/Fallback.tsx";
-import { RenderToggle } from "../../three/RenderToggle.tsx";
-import { useRenderMode } from "../../three/useRenderMode.ts";
+import { type CSSProperties, lazy, useState } from "react";
 import { capitalize, modeOf } from "../labels.ts";
 import { type BoardProps, progressLabel, revealWord } from "./types.ts";
-import { VaultFloors } from "./VaultFloors.tsx";
-
-/** Le plateau 3D, chargé à la demande : c'est lui qui fait entrer `three` dans le site. */
-const VaultBoard3D = lazy(() => import("../coffre3d/VaultBoard3D.tsx"));
+import { plateauAvec3D } from "./avec3D.tsx";
+import { FriseEtapes } from "./FriseEtapes.tsx";
 
 /**
  * Le plateau de Vault Rush : en 3D quand l'appareil le permet (portes de coffre qui
- * pivotent pour de vrai), en 2D sinon — ou si la 3D tombe en panne pendant la partie.
- * Les deux reçoivent la même partie et remontent le même choix.
+ * pivotent pour de vrai), en 2D sinon. Voir `plateauAvec3D`.
  */
-export function VaultBoard(props: BoardProps) {
-  const rendu = useRenderMode();
-  /**
-   * La partie pendant laquelle la 3D a levé : 2D jusqu'à la partie suivante (l'échec est
-   * rattaché à SA partie, il tombe tout seul avec elle), ou jusqu'à ce qu'on la redemande.
-   */
-  const [partieEchec, setPartieEchec] = useState<number | null>(null);
-  const echec3d = partieEchec === props.round.id;
-  const en3d = rendu.mode === "3d" && !echec3d;
-
-  const plateau2D = <VaultBoard2D {...props} />;
-
-  return (
-    <>
-      {rendu.possible ? (
-        <div className="vb-head">
-          <RenderToggle
-            mode={en3d ? "3d" : "2d"}
-            possible={rendu.possible}
-            // Après une panne, le bouton décoché veut dire « réessaie la 3D », pas « passe en 2D ».
-            onToggle={echec3d ? () => setPartieEchec(null) : rendu.toggle}
-          />
-        </div>
-      ) : null}
-      {en3d ? (
-        <Fallback
-          resetKey={props.round.id}
-          onError={() => setPartieEchec(props.round.id)}
-          fallback={plateau2D}
-        >
-          <Suspense fallback={plateau2D}>
-            <VaultBoard3D {...props} />
-          </Suspense>
-        </Fallback>
-      ) : (
-        plateau2D
-      )}
-    </>
-  );
-}
+export const VaultBoard = plateauAvec3D(
+  VaultBoard2D,
+  lazy(() => import("../coffre3d/VaultBoard3D.tsx")),
+);
 
 /**
  * Le plateau 2D : la frise des étages et de vraies portes de coffre en CSS.
@@ -77,7 +35,7 @@ export function VaultBoard2D({ config, round, revealed, pending, onPick }: Board
 
   return (
     <section className="vb" role="group" aria-label={`Chambre forte — ${progression}`}>
-      <VaultFloors config={config} round={round} />
+      <FriseEtapes config={config} round={round} />
 
       <div
         className="vb-doors"

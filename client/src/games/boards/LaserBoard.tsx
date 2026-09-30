@@ -1,7 +1,14 @@
-import { type CSSProperties, type ReactNode, useState } from "react";
+import { type CSSProperties, lazy, type ReactNode, useState } from "react";
 import { formatMultiplier } from "../../lib/format.ts";
 import { capitalize, modeOf } from "../labels.ts";
+import { plateauAvec3D } from "./avec3D.tsx";
 import { type BoardProps, STATE_WORD, progressLabel, revealWord, stepState } from "./types.ts";
+
+/** En 3D quand l'appareil le permet, en 2D sinon : voir `plateauAvec3D`. */
+export const LaserBoard = plateauAvec3D(
+  LaserBoard2D,
+  lazy(() => import("../laser3d/LaserBoard3D.tsx")),
+);
 
 /**
  * Le plateau de Laser Grid : la salle entière, ses huit lignes empilées.
@@ -10,7 +17,7 @@ import { type BoardProps, STATE_WORD, progressLabel, revealWord, stepState } fro
  * logique (ligne 1 en premier, donc lue en premier) et c'est le CSS qui
  * retourne la pile. Seule la ligne courante est cliquable.
  */
-export function LaserBoard({ config, round, revealed, pending, onPick }: BoardProps) {
+export function LaserBoard2D({ config, round, revealed, pending, onPick }: BoardProps) {
   const mode = modeOf(config, round.mode);
   const cases = mode?.options ?? revealed?.length ?? 0;
   const noun = capitalize(config.labels.option);

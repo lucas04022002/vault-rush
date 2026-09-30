@@ -5,10 +5,11 @@ import { capitalize, modeOf } from "../labels.ts";
 import { STATE_WORD, progressLabel, stepState } from "./types.ts";
 
 /**
- * La frise des étages de Vault Rush : un étage par case, son multiplicateur et son
- * état (franchi, en cours, perdu, à venir). Commune au plateau 2D et au plateau 3D.
+ * La frise des étapes d'un jeu d'échelle (étages, lignes, tronçons…) : une étape par case,
+ * son multiplicateur et son état (franchie, en cours, perdue, à venir). Commune au plateau
+ * 2D de Vault Rush et aux plateaux 3D des quatre jeux d'échelle.
  */
-export function VaultFloors({ config, round }: { config: GameConfig; round: Round }) {
+export function FriseEtapes({ config, round }: { config: GameConfig; round: Round }) {
   const multipliers = modeOf(config, round.mode)?.multipliers ?? [];
   const étage = capitalize(config.labels.step);
   const progression = progressLabel(round.status, round.step, config.steps);

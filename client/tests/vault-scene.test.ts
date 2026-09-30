@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { type Group, type Mesh, type Object3D, PerspectiveCamera, type PointLight, Scene } from "three";
-import { MONTEE_MS, OUVERTURE_MS, type Contenu } from "../src/games/coffre3d/portes.ts";
+import { MONTEE_MS, OUVERTURE_MS, type Contenu } from "../src/games/echelle3d/logique.ts";
 import {
   ALARME_MS,
   ANGLE_OUVERT,
@@ -76,7 +76,7 @@ describe("VaultScene", () => {
 
   it("montre un état sans l'animer : battants ouverts sur ce que le serveur a révélé", () => {
     const b = banc(3);
-    const etat: Contenu[] = ["or", "fermee", "alarme"];
+    const etat: Contenu[] = ["sure", "cachee", "piege"];
     b.coffre.montrer(etat, 2);
     const [p1, p2, p3] = b.portes();
     expect(b.angle(p1)).toBeCloseTo(ANGLE_OUVERT, 6);
@@ -89,8 +89,8 @@ describe("VaultScene", () => {
 
   it("étage franchi : la porte choisie s'ouvre sur l'or, on monte, puis l'étage suivant est fermé", () => {
     const b = banc(3);
-    b.coffre.montrer(["fermee", "fermee", "fermee"], 0);
-    b.coffre.jouer({ type: "montee", porte: 1 }, 1);
+    b.coffre.montrer(["cachee", "cachee", "cachee"], 0);
+    b.coffre.jouer({ type: "avance", porte: 1 }, 1);
 
     b.ecouler(OUVERTURE_MS);
     const p2 = b.portes()[1];
@@ -113,8 +113,8 @@ describe("VaultScene", () => {
 
   it("alarme : la porte choisie s'ouvre sur le gyrophare, puis les autres montrent leur contenu", () => {
     const b = banc(4);
-    b.coffre.montrer(["fermee", "fermee", "fermee", "fermee"], 3);
-    b.coffre.jouer({ type: "alarme", porte: 2, contenus: ["or", "or", "alarme", "alarme"] }, 3);
+    b.coffre.montrer(["cachee", "cachee", "cachee", "cachee"], 3);
+    b.coffre.jouer({ type: "perdu", porte: 2, contenus: ["sure", "sure", "piege", "piege"] }, 3);
 
     b.ecouler(OUVERTURE_MS);
     const [p1, , p3, p4] = b.portes();
@@ -131,8 +131,8 @@ describe("VaultScene", () => {
 
   it("le gyrophare clignote quelques secondes puis reste fixe : la boucle s'arrête", () => {
     const b = banc(3);
-    b.coffre.montrer(["fermee", "fermee", "fermee"], 1);
-    b.coffre.jouer({ type: "alarme", porte: 0, contenus: ["alarme", "or", "or"] }, 1);
+    b.coffre.montrer(["cachee", "cachee", "cachee"], 1);
+    b.coffre.jouer({ type: "perdu", porte: 0, contenus: ["piege", "sure", "sure"] }, 1);
     expect(b.ecouler(1000)).toBe(true);
     expect(b.ecouler(ALARME_MS)).toBe(false);
     expect(b.gyrophare().intensity).toBeGreaterThan(0);
@@ -140,8 +140,8 @@ describe("VaultScene", () => {
 
   it("encaissement : toutes les portes s'ouvrent, sans gyrophare", () => {
     const b = banc(3);
-    b.coffre.montrer(["fermee", "fermee", "fermee"], 4);
-    b.coffre.jouer({ type: "encaisse", porte: null, contenus: ["or", "alarme", "or"] }, 4);
+    b.coffre.montrer(["cachee", "cachee", "cachee"], 4);
+    b.coffre.jouer({ type: "encaisse", porte: null, contenus: ["sure", "piege", "sure"] }, 4);
     b.ecouler(1500);
     for (const p of b.portes()) expect(b.angle(p)).toBeCloseTo(ANGLE_OUVERT, 6);
     expect(b.gyrophare().intensity).toBe(0);

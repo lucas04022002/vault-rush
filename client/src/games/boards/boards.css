@@ -1391,3 +1391,16 @@
 .vb3d-porte[aria-disabled="true"] {
   cursor: not-allowed;
 }
+
+/* Le contour clavier d'une option 3D prend la couleur du jeu. */
+.gamepanel[data-game="laser-grid"] .vb3d-porte:focus-visible {
+  outline-color: var(--cyan);
+}
+
+.gamepanel[data-game="getaway"] .vb3d-porte:focus-visible {
+  outline-color: var(--mag);
+}
+
+.gamepanel[data-game="bomb-squad"] .vb3d-porte:focus-visible {
+  outline-color: var(--orange);
+}
