@@ -4,7 +4,7 @@ import { RenderToggle } from "../../three/RenderToggle.tsx";
 import { useRenderMode } from "../../three/useRenderMode.ts";
 import { capitalize, modeOf } from "../labels.ts";
 import { type BoardProps, progressLabel, revealWord } from "./types.ts";
-import { VaultFloors } from "./VaultFloors.tsx";
+import { FriseEtapes } from "./FriseEtapes.tsx";
 
 /** Le plateau 3D, chargé à la demande : c'est lui qui fait entrer `three` dans le site. */
 const VaultBoard3D = lazy(() => import("../coffre3d/VaultBoard3D.tsx"));
@@ -77,7 +77,7 @@ export function VaultBoard2D({ config, round, revealed, pending, onPick }: Board
 
   return (
     <section className="vb" role="group" aria-label={`Chambre forte — ${progression}`}>
-      <VaultFloors config={config} round={round} />
+      <FriseEtapes config={config} round={round} />
 
       <div
         className="vb-doors"

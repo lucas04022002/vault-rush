@@ -4,7 +4,7 @@ import { Stage3D } from "../../three/Stage3D.tsx";
 import type { Stage } from "../../three/stage.ts";
 import type { BoardProps } from "../boards/types.ts";
 import { progressLabel, revealWord } from "../boards/types.ts";
-import { VaultFloors } from "../boards/VaultFloors.tsx";
+import { FriseEtapes } from "../boards/FriseEtapes.tsx";
 import { capitalize, modeOf } from "../labels.ts";
 import {
   type Choix,
@@ -13,7 +13,7 @@ import {
   dureeEvenement,
   evenement,
   type Instant,
-} from "./portes.ts";
+} from "../echelle3d/logique.ts";
 import { VaultScene } from "./VaultScene.ts";
 
 /** Le rapport largeur / hauteur du plateau 3D : fixe, pour que la grille de boutons tombe pile sur les portes. */
@@ -72,7 +72,7 @@ export default function VaultBoard3D({ config, round, revealed, pending, onPick 
     avant.current = apres;
     // Le verrou ne dépend pas de la scène : même si elle n'est pas (encore) là, on ne choisit
     // pas une porte de l'étage suivant pendant que l'étage monte.
-    if (ev?.type === "montee") {
+    if (ev?.type === "avance") {
       setVerrou(true);
       if (minuteur.current) clearTimeout(minuteur.current);
       minuteur.current = setTimeout(() => setVerrou(false), dureeEvenement(ev));
@@ -101,7 +101,7 @@ export default function VaultBoard3D({ config, round, revealed, pending, onPick 
 
   return (
     <section className="vb vb3d" role="group" aria-label={`Chambre forte — ${progression}`}>
-      <VaultFloors config={config} round={round} />
+      <FriseEtapes config={config} round={round} />
 
       <div className="vb3d-scene" style={{ aspectRatio: `${ASPECT}` }}>
         {/* Autre mode = autre nombre de portes : une scène neuve, pas une scène retouchée. */}

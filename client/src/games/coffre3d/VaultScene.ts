@@ -26,7 +26,7 @@ import {
   type Evenement,
   MONTEE_MS,
   OUVERTURE_MS,
-} from "./portes.ts";
+} from "../echelle3d/logique.ts";
 
 /** Distance de la caméra au mur. La caméra est DE FACE : une grille de boutons tombe pile sur les portes. */
 export const RECUL = 10;
@@ -47,8 +47,8 @@ export const NOMS_COFFRE = {
   mur: "mur",
   porte: "porte",
   battant: "battant",
-  or: "or",
-  alarme: "alarme",
+  or: "sure",
+  alarme: "piege",
   gyrophare: "gyrophare",
   survol: "survol",
   plaque: "plaque",
@@ -135,7 +135,7 @@ export class VaultScene {
     this.stage = stage;
     this.nb = nb;
     this.etages = etages;
-    this.contenusActuels = Array.from({ length: nb }, () => "fermee" as Contenu);
+    this.contenusActuels = Array.from({ length: nb }, () => "cachee" as Contenu);
     stage.scene.add(this.monde);
 
     // La lumière des ombres, et le rouge du gyrophare (éteint tant qu'il n'y a pas d'alarme).
@@ -167,21 +167,21 @@ export class VaultScene {
     this.ecrirePlaque(courante, etage);
     this.ecrirePlaque(this.rangees[1], etage + 1);
     courante.portes.forEach((p, i) => {
-      const c = contenus[i] ?? "fermee";
+      const c = contenus[i] ?? "cachee";
       this.remplir(p, c);
       this.contenusActuels[i] = c;
       p.anim = null;
-      this.poserAngle(p, c === "fermee" ? 0 : OUVERT);
+      this.poserAngle(p, c === "cachee" ? 0 : OUVERT);
     });
-    this.alarmer(contenus.includes("alarme"));
+    this.alarmer(contenus.includes("piege"));
     this.stage.run(this.tick);
   }
 
   /** Joue un événement renvoyé par le serveur ; `etageApres` est l'étage atteint. */
   jouer(ev: Evenement, etageApres: number): void {
     const [courante] = this.rangees;
-    if (ev.type === "montee") {
-      if (ev.porte !== null) this.ouvrir(courante.portes[ev.porte], "or", 0);
+    if (ev.type === "avance") {
+      if (ev.porte !== null) this.ouvrir(courante.portes[ev.porte], "sure", 0);
       this.montee = { debut: this.temps + (ev.porte === null ? 0 : OUVERTURE_MS), etage: etageApres };
       this.stage.run(this.tick);
       return;
@@ -189,17 +189,17 @@ export class VaultScene {
     // Alarme ou encaissement : la porte choisie d'abord, puis les autres en cascade.
     let decalage = 0;
     if (ev.porte !== null) {
-      this.ouvrir(courante.portes[ev.porte], ev.contenus[ev.porte] ?? "or", 0);
+      this.ouvrir(courante.portes[ev.porte], ev.contenus[ev.porte] ?? "sure", 0);
       decalage = OUVERTURE_MS;
-      if (ev.type === "alarme") this.alarmeDebut = this.temps;
+      if (ev.type === "perdu") this.alarmeDebut = this.temps;
     }
     let rang = 0;
     ev.contenus.forEach((c, i) => {
-      if (i === ev.porte || c === "fermee") return;
+      if (i === ev.porte || c === "cachee") return;
       this.ouvrir(courante.portes[i], c, decalage + rang * DECALAGE_MS);
       rang++;
     });
-    if (ev.type === "alarme" && ev.porte === null) this.alarmeDebut = this.temps;
+    if (ev.type === "perdu" && ev.porte === null) this.alarmeDebut = this.temps;
     this.stage.run(this.tick);
   }
 
@@ -403,7 +403,7 @@ export class VaultScene {
     gravure.position.set(0, -r * 0.56, 0.035);
     face.add(gravure);
 
-    return { racine, pivot, volant, or, alarme, survol, fond, angle: 0, anim: null, contenu: "fermee" };
+    return { racine, pivot, volant, or, alarme, survol, fond, angle: 0, anim: null, contenu: "cachee" };
   }
 
   /** Une pile de lingots d'or au fond de la niche. */
@@ -459,10 +459,10 @@ export class VaultScene {
   private remplir(p: Porte, c: Contenu): void {
     p.contenu = c;
     // Une niche ouverte s'éclaire : or chaud derrière les lingots, rouge vif derrière l'alarme.
-    p.fond.material.emissive.set(c === "alarme" ? NEON.alarm : c === "or" ? NEON.yel : NEON.bg);
-    p.fond.material.emissiveIntensity = c === "alarme" ? 0.55 : c === "or" ? 0.18 : 0;
-    p.or.visible = c === "or";
-    p.alarme.visible = c === "alarme";
+    p.fond.material.emissive.set(c === "piege" ? NEON.alarm : c === "sure" ? NEON.yel : NEON.bg);
+    p.fond.material.emissiveIntensity = c === "piege" ? 0.55 : c === "sure" ? 0.18 : 0;
+    p.or.visible = c === "sure";
+    p.alarme.visible = c === "piege";
   }
 
   private poserAngle(p: Porte, angle: number): void {
@@ -502,7 +502,7 @@ export class VaultScene {
     if (u < 1) return true;
     // Arrivé : la rangée courante devient celle de l'étage atteint, portes fermées.
     const etage = this.montee.etage;
-    this.montrer(Array.from({ length: this.nb }, () => "fermee"), etage);
+    this.montrer(Array.from({ length: this.nb }, () => "cachee"), etage);
     return false;
   }
 
@@ -516,7 +516,7 @@ export class VaultScene {
     // ensuite il reste allumé, fixe — la boucle s'arrête (le bilan peut rester affiché longtemps).
     const actif = t < ALARME_MS;
     this.gyrophare.intensity = actif ? 6 * (0.55 + 0.45 * Math.sin(t * 0.0125)) : 4;
-    const porte = this.rangees[0]?.portes.find((p) => p.contenu === "alarme");
+    const porte = this.rangees[0]?.portes.find((p) => p.contenu === "piege");
     if (porte) {
       porte.racine.getWorldPosition(this.gyrophare.position);
       this.gyrophare.position.z = 1.5;
@@ -545,8 +545,8 @@ export class VaultScene {
     this.ecrirePlaque(courante, etage);
     this.ecrirePlaque(this.rangees[1], etage + 1);
     courante.portes.forEach((p, i) => {
-      this.remplir(p, contenus[i] ?? "fermee");
-      this.poserAngle(p, contenus[i] && contenus[i] !== "fermee" ? OUVERT : 0);
+      this.remplir(p, contenus[i] ?? "cachee");
+      this.poserAngle(p, contenus[i] && contenus[i] !== "cachee" ? OUVERT : 0);
     });
     if (this.survolee !== null) this.survoler(this.survolee);
   }

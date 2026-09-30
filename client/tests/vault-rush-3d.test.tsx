@@ -3,7 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { baseApi, round } from "./helpers/fake-api.ts";
 import { renderApp } from "./helpers/render.tsx";
-import { dureeEvenement } from "../src/games/coffre3d/portes.ts";
+import { dureeEvenement } from "../src/games/echelle3d/logique.ts";
 
 /**
  * Vault Rush en 3D, dans l'application réelle. jsdom n'a pas de WebGL : on simule sa présence
@@ -80,7 +80,7 @@ describe("Vault Rush en 3D", () => {
     // … mais ses portes attendent la fin de la montée.
     expect(screen.getByRole("button", { name: "Porte 1" })).toBeDisabled();
     await waitFor(() => expect(screen.getByRole("button", { name: "Porte 1" })).toBeEnabled(), {
-      timeout: dureeEvenement({ type: "montee", porte: 0 }) + 1000,
+      timeout: dureeEvenement({ type: "avance", porte: 0 }) + 1000,
     });
   });
 

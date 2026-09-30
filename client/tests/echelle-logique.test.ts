@@ -10,7 +10,7 @@ import {
   type Instant,
   MONTEE_MS,
   OUVERTURE_MS,
-} from "../src/games/coffre3d/portes.ts";
+} from "../src/games/echelle3d/logique.ts";
 
 const jeu = (step: number, status: Instant["status"] = "playing", roundId = 7): Instant => ({
   roundId,
@@ -20,21 +20,21 @@ const jeu = (step: number, status: Instant["status"] = "playing", roundId = 7): 
 
 describe("contenus", () => {
   it("toutes fermées tant que le serveur n'a rien révélé", () => {
-    expect(contenus(null, 4)).toEqual(["fermee", "fermee", "fermee", "fermee"]);
-    expect(contenus(undefined, 3)).toEqual(["fermee", "fermee", "fermee"]);
+    expect(contenus(null, 4)).toEqual(["cachee", "cachee", "cachee", "cachee"]);
+    expect(contenus(undefined, 3)).toEqual(["cachee", "cachee", "cachee"]);
   });
 
   it("coffre = or, alarme = alarme, porte par porte", () => {
     expect(contenus(["safe", "danger", "safe", "danger"], 4)).toEqual([
-      "or",
-      "alarme",
-      "or",
-      "alarme",
+      "sure",
+      "piege",
+      "sure",
+      "piege",
     ]);
   });
 
   it("une révélation plus courte que la rangée laisse les dernières fermées", () => {
-    expect(contenus(["danger"], 3)).toEqual(["alarme", "fermee", "fermee"]);
+    expect(contenus(["danger"], 3)).toEqual(["piege", "cachee", "cachee"]);
   });
 });
 
@@ -46,20 +46,20 @@ describe("evenement", () => {
 
   it("un étage franchi : la porte choisie s'ouvre sur l'or, puis on monte", () => {
     const choix = { roundId: 7, step: 2, porte: 3 };
-    expect(evenement(jeu(2), jeu(3), choix, null)).toEqual({ type: "montee", porte: 2 });
+    expect(evenement(jeu(2), jeu(3), choix, null)).toEqual({ type: "avance", porte: 2 });
   });
 
   it("un choix d'un autre étage n'est pas celui qui a fait monter", () => {
     const vieux = { roundId: 7, step: 1, porte: 1 };
-    expect(evenement(jeu(2), jeu(3), vieux, null)).toEqual({ type: "montee", porte: null });
+    expect(evenement(jeu(2), jeu(3), vieux, null)).toEqual({ type: "avance", porte: null });
   });
 
   it("perdue : la porte choisie déclenche l'alarme, puis les autres montrent leur contenu", () => {
     const choix = { roundId: 7, step: 2, porte: 2 };
     expect(evenement(jeu(2), jeu(2, "lost"), choix, ["safe", "danger", "safe"])).toEqual({
-      type: "alarme",
+      type: "perdu",
       porte: 1,
-      contenus: ["or", "alarme", "or"],
+      contenus: ["sure", "piege", "sure"],
     });
   });
 
@@ -67,7 +67,7 @@ describe("evenement", () => {
     expect(evenement(jeu(3), jeu(3, "cashed_out"), null, ["safe", "safe", "danger"])).toEqual({
       type: "encaisse",
       porte: null,
-      contenus: ["or", "or", "alarme"],
+      contenus: ["sure", "sure", "piege"],
     });
   });
 
@@ -76,7 +76,7 @@ describe("evenement", () => {
     expect(evenement(jeu(5), jeu(6, "cashed_out"), choix, ["safe", "danger", "safe"])).toEqual({
       type: "encaisse",
       porte: 0,
-      contenus: ["or", "alarme", "or"],
+      contenus: ["sure", "piege", "sure"],
     });
   });
 
@@ -88,17 +88,17 @@ describe("evenement", () => {
 
 describe("dureeEvenement", () => {
   it("une montée : ouvrir la porte, puis monter", () => {
-    expect(dureeEvenement({ type: "montee", porte: 1 })).toBe(OUVERTURE_MS + MONTEE_MS);
+    expect(dureeEvenement({ type: "avance", porte: 1 })).toBe(OUVERTURE_MS + MONTEE_MS);
   });
 
   it("une alarme : la porte choisie, puis les autres l'une après l'autre", () => {
-    const ev: Evenement = { type: "alarme", porte: 1, contenus: ["or", "alarme", "or", "or"] };
+    const ev: Evenement = { type: "perdu", porte: 1, contenus: ["sure", "piege", "sure", "sure"] };
     // 3 autres portes : la dernière commence 2 décalages après la première, et dure une ouverture.
     expect(dureeEvenement(ev)).toBe(OUVERTURE_MS + 2 * DECALAGE_MS + OUVERTURE_MS);
   });
 
   it("un encaissement sans porte choisie : seulement les ouvertures en cascade", () => {
-    const ev: Evenement = { type: "encaisse", porte: null, contenus: ["or", "or", "alarme"] };
+    const ev: Evenement = { type: "encaisse", porte: null, contenus: ["sure", "sure", "piege"] };
     expect(dureeEvenement(ev)).toBe(2 * DECALAGE_MS + OUVERTURE_MS);
   });
 });
