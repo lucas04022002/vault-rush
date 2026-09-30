@@ -1,20 +1,70 @@
-import { type CSSProperties, useState } from "react";
-import { formatMultiplier } from "../../lib/format.ts";
+import { type CSSProperties, lazy, Suspense, useState } from "react";
+import { Fallback } from "../../three/Fallback.tsx";
+import { RenderToggle } from "../../three/RenderToggle.tsx";
+import { useRenderMode } from "../../three/useRenderMode.ts";
 import { capitalize, modeOf } from "../labels.ts";
-import { type BoardProps, STATE_WORD, progressLabel, revealWord, stepState } from "./types.ts";
+import { type BoardProps, progressLabel, revealWord } from "./types.ts";
+import { VaultFloors } from "./VaultFloors.tsx";
+
+/** Le plateau 3D, chargé à la demande : c'est lui qui fait entrer `three` dans le site. */
+const VaultBoard3D = lazy(() => import("../coffre3d/VaultBoard3D.tsx"));
 
 /**
- * Le plateau de Vault Rush : un immeuble d'étages et de vraies portes de coffre.
+ * Le plateau de Vault Rush : en 3D quand l'appareil le permet (portes de coffre qui
+ * pivotent pour de vrai), en 2D sinon — ou si la 3D tombe en panne pendant la partie.
+ * Les deux reçoivent la même partie et remontent le même choix.
+ */
+export function VaultBoard(props: BoardProps) {
+  const rendu = useRenderMode();
+  /**
+   * La partie pendant laquelle la 3D a levé : 2D jusqu'à la partie suivante (l'échec est
+   * rattaché à SA partie, il tombe tout seul avec elle), ou jusqu'à ce qu'on la redemande.
+   */
+  const [partieEchec, setPartieEchec] = useState<number | null>(null);
+  const echec3d = partieEchec === props.round.id;
+  const en3d = rendu.mode === "3d" && !echec3d;
+
+  const plateau2D = <VaultBoard2D {...props} />;
+
+  return (
+    <>
+      {rendu.possible ? (
+        <div className="vb-head">
+          <RenderToggle
+            mode={en3d ? "3d" : "2d"}
+            possible={rendu.possible}
+            // Après une panne, le bouton décoché veut dire « réessaie la 3D », pas « passe en 2D ».
+            onToggle={echec3d ? () => setPartieEchec(null) : rendu.toggle}
+          />
+        </div>
+      ) : null}
+      {en3d ? (
+        <Fallback
+          resetKey={props.round.id}
+          onError={() => setPartieEchec(props.round.id)}
+          fallback={plateau2D}
+        >
+          <Suspense fallback={plateau2D}>
+            <VaultBoard3D {...props} />
+          </Suspense>
+        </Fallback>
+      ) : (
+        plateau2D
+      )}
+    </>
+  );
+}
+
+/**
+ * Le plateau 2D : la frise des étages et de vraies portes de coffre en CSS.
  *
  * Rien d'aléatoire ni de décidé ici — les étages, les portes et leurs mots
  * viennent tous de la config du jeu et de la partie en cours.
  */
-export function VaultBoard({ config, round, revealed, pending, onPick }: BoardProps) {
+export function VaultBoard2D({ config, round, revealed, pending, onPick }: BoardProps) {
   const mode = modeOf(config, round.mode);
   const portes = mode?.options ?? revealed?.length ?? 0;
-  const multipliers = mode?.multipliers ?? [];
   const noun = capitalize(config.labels.option);
-  const étage = capitalize(config.labels.step);
 
   // La porte choisie garde son liseré tant que l'étage n'a pas changé. L'état
   // est rattaché à (partie, étage) : pas d'effet, pas de liseré fantôme.
@@ -27,35 +77,7 @@ export function VaultBoard({ config, round, revealed, pending, onPick }: BoardPr
 
   return (
     <section className="vb" role="group" aria-label={`Chambre forte — ${progression}`}>
-      <ol
-        className="vb-floors"
-        aria-label={progression}
-        style={{ "--vb-floors": config.steps } as CSSProperties}
-      >
-        {Array.from({ length: config.steps }, (_, index) => {
-          const state = stepState(index, round.step, round.status);
-          const multiplier = multipliers[index];
-          return (
-            <li
-              key={index}
-              className="vb-floor"
-              data-state={state}
-              aria-label={
-                multiplier === undefined
-                  ? `${étage} ${index + 1}, ${STATE_WORD[state]}`
-                  : `${étage} ${index + 1}, ${formatMultiplier(multiplier)}, ${STATE_WORD[state]}`
-              }
-            >
-              <span className="vb-floor__num" aria-hidden="true">
-                {index + 1}
-              </span>
-              <span className="vb-floor__mult" aria-hidden="true">
-                {multiplier === undefined ? "" : formatMultiplier(multiplier)}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+      <VaultFloors config={config} round={round} />
 
       <div
         className="vb-doors"
