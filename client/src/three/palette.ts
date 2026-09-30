@@ -17,6 +17,8 @@ export const NEON = {
   gemInk: "#1E0B33",
   text: "#FFF6FA",
   dim: "#A99CC4",
+  alarm: "#FF4D4D",
+  safe: "#41F0A5",
 } as const;
 
 /**
@@ -27,4 +29,6 @@ export const NEON = {
 export const MATIERES = {
   chrome: "#E4DDF2",
   cristal: "#FFFFFF",
+  /** L'acier des battants de coffre, plus sombre que le chrome. */
+  acier: "#5E5775",
 } as const;

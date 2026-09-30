@@ -65,6 +65,8 @@ describe("la palette 3D", () => {
     expect(NEON.gemInk).toBe(jeton("gem-ink"));
     expect(NEON.text).toBe(jeton("text"));
     expect(NEON.dim).toBe(jeton("dim"));
+    expect(NEON.alarm).toBe(jeton("alarm"));
+    expect(NEON.safe).toBe(jeton("safe"));
   });
 });
 

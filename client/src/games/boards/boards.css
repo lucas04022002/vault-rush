@@ -1340,3 +1340,54 @@
     animation: none;
   }
 }
+
+/* ------------------------------ Vault Rush en 3D ------------------------------ */
+
+.vb-head {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Le mur de coffres : rapport fixe (voir ASPECT dans VaultBoard3D), pour que la grille de
+   boutons posée par-dessus tombe pile sur les portes dessinées. */
+.vb3d-scene {
+  position: relative;
+  width: 100%;
+  border-radius: var(--r-sm);
+  border: 2px solid var(--line);
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.vb3d-scene .stage3d {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Une colonne par porte, sans écart : la même division que la scène. */
+.vb3d-portes {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--vb-doors, 3), minmax(0, 1fr));
+}
+
+.vb3d-porte {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.vb3d-porte:focus-visible {
+  outline: 3px solid var(--yel);
+  outline-offset: -6px;
+}
+
+.vb3d-porte[aria-disabled="true"] {
+  cursor: not-allowed;
+}
