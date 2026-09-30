@@ -67,6 +67,7 @@ describe("la palette 3D", () => {
     expect(NEON.dim).toBe(jeton("dim"));
     expect(NEON.alarm).toBe(jeton("alarm"));
     expect(NEON.safe).toBe(jeton("safe"));
+    expect(NEON.orange).toBe(jeton("orange"));
   });
 });
 

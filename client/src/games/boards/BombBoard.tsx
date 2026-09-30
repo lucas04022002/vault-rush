@@ -1,5 +1,6 @@
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, lazy, useState } from "react";
 import { capitalize, modeOf } from "../labels.ts";
+import { plateauAvec3D } from "./avec3D.tsx";
 import { type BoardProps, STATE_WORD, progressLabel, revealWord, stepState } from "./types.ts";
 
 /**
@@ -15,6 +16,12 @@ import { type BoardProps, STATE_WORD, progressLabel, revealWord, stepState } fro
  */
 
 const GAINES = ["cyan", "magenta", "yellow", "orange"] as const;
+
+/** En 3D quand l'appareil le permet, en 2D sinon : voir `plateauAvec3D`. */
+export const BombBoard = plateauAvec3D(
+  BombBoard2D,
+  lazy(() => import("../bomb3d/BombBoard3D.tsx")),
+);
 
 /** Les segments allumés d'un chiffre sur un afficheur sept segments. */
 const SEGMENTS: Record<string, string[]> = {
@@ -32,7 +39,7 @@ const SEGMENTS: Record<string, string[]> = {
 
 const TOUS_SEGMENTS = ["a", "b", "c", "d", "e", "f", "g"] as const;
 
-export function BombBoard({ config, round, revealed, pending, onPick }: BoardProps) {
+export function BombBoard2D({ config, round, revealed, pending, onPick }: BoardProps) {
   const mode = modeOf(config, round.mode);
   const câbles = mode?.options ?? revealed?.length ?? 0;
   const noun = capitalize(config.labels.option);

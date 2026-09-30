@@ -323,8 +323,10 @@ export abstract class SceneEchelle<O extends OptionBase> {
     const [courante, suivante] = this.rangees;
     this.ecrireEntete(courante, this.etape);
     this.ecrireEntete(suivante, this.etape + 1);
-    courante.options.forEach((o, i) => this.poser(o, this.contenusActuels[i]));
-    suivante.options.forEach((o) => this.poser(o, "cachee"));
+    courante.options.forEach((o, i) => {
+      this.poser(o, this.contenusActuels[i]);
+    });
+    for (const o of suivante.options) this.poser(o, "cachee");
   }
 
   private poser(o: O, c: Contenu): void {

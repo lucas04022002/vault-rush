@@ -19,6 +19,7 @@ export const NEON = {
   dim: "#A99CC4",
   alarm: "#FF4D4D",
   safe: "#41F0A5",
+  orange: "#FF8A3D",
 } as const;
 
 /**
