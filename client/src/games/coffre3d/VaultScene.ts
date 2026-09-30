@@ -2,254 +2,78 @@ import {
   BackSide,
   BoxGeometry,
   CircleGeometry,
-  CanvasTexture,
   Color,
   CylinderGeometry,
-  DirectionalLight,
   Group,
   Mesh,
   MeshBasicMaterial,
   MeshPhysicalMaterial,
   MeshStandardMaterial,
+  type Object3D,
   PlaneGeometry,
-  PointLight,
-  SRGBColorSpace,
   SphereGeometry,
   TorusGeometry,
 } from "three";
 import { MATIERES, NEON } from "../../three/palette.ts";
 import type { Stage } from "../../three/stage.ts";
+import type { Contenu } from "../echelle3d/logique.ts";
 import {
-  type Contenu,
-  DECALAGE_MS,
-  disposition,
-  type Evenement,
-  MONTEE_MS,
-  OUVERTURE_MS,
-} from "../echelle3d/logique.ts";
+  DANGER_MS,
+  NOMS_ECHELLE,
+  type OptionBase,
+  PROFONDEUR,
+  SceneEchelle,
+  sortie,
+  texte,
+} from "../echelle3d/SceneEchelle.ts";
 
-/** Distance de la caméra au mur. La caméra est DE FACE : une grille de boutons tombe pile sur les portes. */
-export const RECUL = 10;
-/** Champ vertical de la caméra, en degrés. */
-const CHAMP = 40;
-/** Angle d'un battant grand ouvert (il pivote vers le joueur, gonds à gauche). */
-// À angle droit, le battant se voit par la tranche : grand ouvert (-1,95), il masquait la porte voisine.
+/** Angle d'un battant ouvert : à angle droit, on le voit par la tranche (grand ouvert, il masquait la porte voisine). */
 export const ANGLE_OUVERT = -1.5;
-const OUVERT = ANGLE_OUVERT;
-/** Épaisseur d'un battant et profondeur d'une niche. */
-const EPAISSEUR = 0.28;
-const PROFONDEUR = 0.7;
 /** Durée pendant laquelle le gyrophare clignote, avant de rester allumé fixe, en ms. */
-export const ALARME_MS = 4000;
+export const ALARME_MS = DANGER_MS;
+/** Épaisseur d'un battant. */
+const EPAISSEUR = 0.28;
 
-/** Noms des objets : les tests et le débogage les retrouvent ainsi. */
+/** Noms des objets : les communs, et ceux propres aux coffres. */
 export const NOMS_COFFRE = {
-  mur: "mur",
-  porte: "porte",
+  mur: NOMS_ECHELLE.decor,
+  porte: NOMS_ECHELLE.option,
+  survol: NOMS_ECHELLE.survol,
+  plaque: NOMS_ECHELLE.entete,
+  gyrophare: NOMS_ECHELLE.danger,
   battant: "battant",
-  or: "sure",
-  alarme: "piege",
-  gyrophare: "gyrophare",
-  survol: "survol",
-  plaque: "plaque",
+  or: "lingots",
+  alarme: "gyrophare-balise",
 } as const;
 
-/** La largeur et la hauteur du mur visible à la distance `RECUL`, pour un rapport largeur/hauteur donné. */
-export function cadreVisible(aspect: number): { largeur: number; hauteur: number } {
-  const hauteur = 2 * RECUL * Math.tan(((CHAMP / 2) * Math.PI) / 180);
-  return { largeur: hauteur * aspect, hauteur };
-}
-
-/** Accélère puis freine, avec un léger dépassement : un battant lourd qui s'ouvre. */
-function sortie(u: number): number {
-  const c = 1.4;
-  const v = u - 1;
-  return 1 + (c + 1) * v * v * v + c * v * v;
-}
-
-/** Le texte d'une plaque ou d'un numéro, dessiné sur un canvas. */
-function texte(ecrit: string, encre: string, fond: string | null, l = 256, h = 128): CanvasTexture {
-  const canvas = document.createElement("canvas");
-  canvas.width = l;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    if (fond) {
-      ctx.fillStyle = fond;
-      ctx.fillRect(0, 0, l, h);
-    }
-    ctx.fillStyle = encre;
-    ctx.font = `700 ${Math.round(h * 0.52)}px 'Space Mono', ui-monospace, monospace`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(ecrit, l / 2, h / 2 + h * 0.04, l * 0.92);
-  }
-  const t = new CanvasTexture(canvas);
-  t.colorSpace = SRGBColorSpace;
-  return t;
-}
-
-/** Une porte : son cadre, sa niche (or ou alarme dedans) et son battant qui pivote. */
-type Porte = {
-  racine: Group;
+type Porte = OptionBase & {
   pivot: Group;
   volant: Group;
   or: Group;
+  alarme: Group;
   /** Le fond de la niche : il s'éclaire d'or chaud ou de rouge selon ce qu'elle cache. */
   fond: Mesh<CircleGeometry, MeshStandardMaterial>;
-  alarme: Group;
-  survol: Mesh;
-  /** Angle actuel du battant (0 = fermé) et animation en cours. */
-  angle: number;
-  anim: { debut: number; de: number; vers: number } | null;
-  contenu: Contenu;
 };
 
-/** Une rangée : un étage de portes et sa plaque. */
-type Rangee = { groupe: Group; portes: Porte[]; plaque: Mesh<PlaneGeometry, MeshBasicMaterial> };
-
 /**
- * Vault Rush en 3D : un mur d'acier, une rangée de portes de coffre rondes. La scène
- * ne décide rien : elle montre les contenus que le serveur a révélés et joue les
- * événements que l'écran lui passe (montée, alarme, encaissement).
+ * Vault Rush en 3D : un mur d'acier brossé et une rangée de portes de coffre rondes. Une
+ * porte révélée pivote sur ses gonds et découvre des lingots ou un gyrophare.
  */
-export class VaultScene {
-  private readonly stage: Stage;
-  private readonly nb: number;
-  private readonly etages: number;
-  private readonly monde = new Group();
-  /** Deux rangées : l'étage courant, et le suivant juste au-dessus pour la montée. */
-  private rangees: Rangee[] = [];
-  private hauteurEtage = 1;
-  private aspect = 0;
-  private etage = 0;
-  private temps = 0;
-  /** La montée : début (ms) et étage d'arrivée ; la rangée descend d'un étage. */
-  private montee: { debut: number; etage: number } | null = null;
-  private readonly gyrophare: PointLight;
-  private alarmeDebut: number | null = null;
-  private survolee: number | null = null;
-  private readonly contenusActuels: Contenu[];
-
+export class VaultScene extends SceneEchelle<Porte> {
   constructor(stage: Stage, nb: number, etages: number) {
-    this.stage = stage;
-    this.nb = nb;
-    this.etages = etages;
-    this.contenusActuels = Array.from({ length: nb }, () => "cachee" as Contenu);
-    stage.scene.add(this.monde);
-
-    // La lumière des ombres, et le rouge du gyrophare (éteint tant qu'il n'y a pas d'alarme).
-    const soleil = new DirectionalLight(new Color(NEON.text), 1.2);
-    soleil.position.set(-4, 6, 9);
-    soleil.castShadow = true;
-    const cote = stage.qualite === "haute" ? 2048 : 1024;
-    soleil.shadow.mapSize.set(cote, cote);
-    soleil.shadow.camera.left = -12;
-    soleil.shadow.camera.right = 12;
-    soleil.shadow.camera.top = 8;
-    soleil.shadow.camera.bottom = -8;
-    soleil.shadow.bias = -0.0004;
-    soleil.shadow.normalBias = 0.02;
-    stage.scene.add(soleil);
-    this.gyrophare = new PointLight(new Color(NEON.alarm), 0, 14, 1.2);
-    this.gyrophare.name = NOMS_COFFRE.gyrophare;
-    this.monde.add(this.gyrophare);
-
-    this.composer();
+    super(stage, nb, etages);
+    this.demarrer();
   }
 
-  /** L'état tel quel, sans animation : première image, reprise, fin de partie déjà jouée. */
-  montrer(contenus: Contenu[], etage: number): void {
-    this.montee = null;
-    this.etage = etage;
-    this.monde.position.y = 0;
-    const [courante] = this.rangees;
-    this.ecrirePlaque(courante, etage);
-    this.ecrirePlaque(this.rangees[1], etage + 1);
-    courante.portes.forEach((p, i) => {
-      const c = contenus[i] ?? "cachee";
-      this.remplir(p, c);
-      this.contenusActuels[i] = c;
-      p.anim = null;
-      this.poserAngle(p, c === "cachee" ? 0 : OUVERT);
-    });
-    this.alarmer(contenus.includes("piege"));
-    this.stage.run(this.tick);
+  protected accent(): string {
+    return NEON.yel;
   }
 
-  /** Joue un événement renvoyé par le serveur ; `etageApres` est l'étage atteint. */
-  jouer(ev: Evenement, etageApres: number): void {
-    const [courante] = this.rangees;
-    if (ev.type === "avance") {
-      if (ev.porte !== null) this.ouvrir(courante.portes[ev.porte], "sure", 0);
-      this.montee = { debut: this.temps + (ev.porte === null ? 0 : OUVERTURE_MS), etage: etageApres };
-      this.stage.run(this.tick);
-      return;
-    }
-    // Alarme ou encaissement : la porte choisie d'abord, puis les autres en cascade.
-    let decalage = 0;
-    if (ev.porte !== null) {
-      this.ouvrir(courante.portes[ev.porte], ev.contenus[ev.porte] ?? "sure", 0);
-      decalage = OUVERTURE_MS;
-      if (ev.type === "perdu") this.alarmeDebut = this.temps;
-    }
-    let rang = 0;
-    ev.contenus.forEach((c, i) => {
-      if (i === ev.porte || c === "cachee") return;
-      this.ouvrir(courante.portes[i], c, decalage + rang * DECALAGE_MS);
-      rang++;
-    });
-    if (ev.type === "perdu" && ev.porte === null) this.alarmeDebut = this.temps;
-    this.stage.run(this.tick);
+  protected enTete(etape: number): string {
+    return `ÉTAGE ${etape + 1}`;
   }
 
-  /** Le liseré néon de la porte survolée (souris ou clavier), ou aucun. */
-  survoler(porte: number | null): void {
-    this.survolee = porte;
-    this.rangees[0]?.portes.forEach((p, i) => {
-      p.survol.visible = i === porte;
-    });
-    this.stage.requestRender();
-  }
-
-  private readonly tick = (dt: number): boolean => {
-    this.temps += dt;
-    let bouge = false;
-
-    // Un téléphone qu'on tourne change le cadre : on recompose le mur et les portes.
-    if (Math.abs(this.stage.camera.aspect - this.aspect) > 1e-3) {
-      this.composer();
-      this.montrerSansRelancer();
-    }
-
-    for (const rangee of this.rangees) {
-      for (const p of rangee.portes) bouge = this.animerPorte(p) || bouge;
-    }
-    bouge = this.animerMontee() || bouge;
-    bouge = this.animerAlarme() || bouge;
-    return bouge;
-  };
-
-  // ---------------------------------------------------------------- composition
-
-  /** (Re)construit le mur et les deux rangées pour le cadre actuel de la caméra. */
-  private composer(): void {
-    for (const r of this.rangees) this.monde.remove(r.groupe);
-    const ancien = this.monde.getObjectByName(NOMS_COFFRE.mur);
-    if (ancien) this.monde.remove(ancien);
-
-    const camera = this.stage.camera;
-    camera.fov = CHAMP;
-    camera.position.set(0, 0, RECUL);
-    camera.lookAt(0, 0, 0);
-    camera.updateProjectionMatrix();
-    this.aspect = camera.aspect;
-
-    const { largeur, hauteur } = cadreVisible(Math.max(this.aspect, 0.3));
-    this.hauteurEtage = hauteur;
-    const { rayon, centres } = disposition(this.nb, largeur, hauteur);
-
-    // Le mur d'acier brossé, assez haut pour couvrir la montée.
+  protected decor(largeur: number, hauteur: number): Object3D {
     const mur = new Mesh(
       new PlaneGeometry(largeur * 1.3, hauteur * 3.2),
       new MeshPhysicalMaterial({
@@ -261,54 +85,13 @@ export class VaultScene {
         envMapIntensity: 0.3,
       }),
     );
-    mur.name = NOMS_COFFRE.mur;
     mur.position.set(0, hauteur * 0.6, -PROFONDEUR - 0.02);
     mur.receiveShadow = true;
-    this.monde.add(mur);
-
-    this.rangees = [0, 1].map((k) => this.rangee(k * hauteur, largeur, hauteur, rayon, centres));
+    return mur;
   }
 
-  private rangee(
-    y: number,
-    largeur: number,
-    hauteur: number,
-    rayon: number,
-    centres: { x: number; y: number }[],
-  ): Rangee {
-    const groupe = new Group();
-    groupe.position.y = y;
-    this.monde.add(groupe);
-
-    // Une jointure chromée sous l'étage : c'est elle qu'on voit défiler pendant la montée.
-    const joint = new Mesh(
-      new BoxGeometry(largeur * 1.3, 0.06, 0.1),
-      new MeshStandardMaterial({
-        color: new Color(MATIERES.chrome),
-        metalness: 1,
-        roughness: 0.3,
-        envMap: this.stage.studio,
-        envMapIntensity: 0.6,
-      }),
-    );
-    joint.position.set(0, -hauteur / 2 + 0.05, -PROFONDEUR + 0.05);
-    groupe.add(joint);
-
-    const plaque = new Mesh(
-      new PlaneGeometry(Math.min(largeur * 0.36, 3.2), 0.62),
-      new MeshBasicMaterial({ map: texte("ÉTAGE 1", NEON.yel, NEON.bg, 512, 96), toneMapped: false }),
-    );
-    plaque.name = NOMS_COFFRE.plaque;
-    plaque.position.set(0, hauteur / 2 - 0.62, -PROFONDEUR + 0.01);
-    groupe.add(plaque);
-
-    const portes = centres.map((c, i) => this.porte(c.x, c.y, rayon, i + 1, groupe));
-    return { groupe, portes, plaque };
-  }
-
-  private porte(x: number, y: number, r: number, numero: number, parent: Group): Porte {
+  protected option(x: number, y: number, r: number, numero: number, parent: Group): Porte {
     const racine = new Group();
-    racine.name = NOMS_COFFRE.porte;
     racine.position.set(x, y, 0);
     parent.add(racine);
 
@@ -352,8 +135,6 @@ export class VaultScene {
       new TorusGeometry(r * 1.1, 0.025, 8, 64),
       new MeshBasicMaterial({ color: new Color(NEON.yel), toneMapped: false }),
     );
-    survol.name = NOMS_COFFRE.survol;
-    survol.visible = false;
     racine.add(survol);
 
     // Ce qu'il y a dedans : des lingots, ou un gyrophare.
@@ -403,7 +184,30 @@ export class VaultScene {
     gravure.position.set(0, -r * 0.56, 0.035);
     face.add(gravure);
 
-    return { racine, pivot, volant, or, alarme, survol, fond, angle: 0, anim: null, contenu: "cachee" };
+    return { racine, survol, u: 0, anim: null, contenu: "cachee", pivot, volant, or, alarme, fond };
+  }
+
+  protected remplir(p: Porte, c: Contenu): void {
+    p.contenu = c;
+    // Une niche ouverte s'éclaire : or chaud derrière les lingots, rouge vif derrière l'alarme.
+    p.fond.material.emissive.set(c === "piege" ? NEON.alarm : c === "sure" ? NEON.yel : NEON.bg);
+    p.fond.material.emissiveIntensity = c === "piege" ? 0.55 : c === "sure" ? 0.18 : 0;
+    p.or.visible = c === "sure";
+    p.alarme.visible = c === "piege";
+  }
+
+  protected peindre(p: Porte, u: number): void {
+    // Le volant tourne pendant le premier tiers (on déverrouille), puis le battant pivote.
+    p.volant.rotation.z = -Math.min(u / 0.35, 1) * Math.PI;
+    const v = Math.min(Math.max((u - 0.25) / 0.75, 0), 1);
+    // `0 +` : fermé, l'angle vaut 0 et non -0 (que les tests distinguent).
+    p.pivot.rotation.y = u >= 1 ? ANGLE_OUVERT : 0 + ANGLE_OUVERT * sortie(v);
+  }
+
+  protected ambiance(t: number, piege: Porte | undefined): boolean {
+    const actif = super.ambiance(t, piege);
+    if (actif && piege) piege.alarme.rotation.z = t * 0.008;
+    return actif;
   }
 
   /** Une pile de lingots d'or au fond de la niche. */
@@ -452,102 +256,5 @@ export class VaultScene {
     groupe.add(dome);
     groupe.visible = false;
     return groupe;
-  }
-
-  // ---------------------------------------------------------------- animation
-
-  private remplir(p: Porte, c: Contenu): void {
-    p.contenu = c;
-    // Une niche ouverte s'éclaire : or chaud derrière les lingots, rouge vif derrière l'alarme.
-    p.fond.material.emissive.set(c === "piege" ? NEON.alarm : c === "sure" ? NEON.yel : NEON.bg);
-    p.fond.material.emissiveIntensity = c === "piege" ? 0.55 : c === "sure" ? 0.18 : 0;
-    p.or.visible = c === "sure";
-    p.alarme.visible = c === "piege";
-  }
-
-  private poserAngle(p: Porte, angle: number): void {
-    p.angle = angle;
-    p.pivot.rotation.y = angle;
-  }
-
-  private ouvrir(p: Porte | undefined, c: Contenu, retard: number): void {
-    if (!p) return;
-    this.remplir(p, c);
-    p.anim = { debut: this.temps + retard, de: p.angle, vers: OUVERT };
-  }
-
-  private animerPorte(p: Porte): boolean {
-    if (!p.anim) return false;
-    const u = (this.temps - p.anim.debut) / OUVERTURE_MS;
-    if (u < 0) return true;
-    // Le volant tourne pendant le premier tiers (on déverrouille), puis le battant pivote.
-    p.volant.rotation.z = -Math.min(u / 0.35, 1) * Math.PI;
-    const v = Math.min(Math.max((u - 0.25) / 0.75, 0), 1);
-    this.poserAngle(p, p.anim.de + (p.anim.vers - p.anim.de) * sortie(v));
-    if (u >= 1) {
-      this.poserAngle(p, p.anim.vers);
-      p.anim = null;
-      return false;
-    }
-    return true;
-  }
-
-  private animerMontee(): boolean {
-    if (!this.montee) return false;
-    const u = (this.temps - this.montee.debut) / MONTEE_MS;
-    if (u < 0) return true;
-    const v = Math.min(u, 1);
-    // Tout le mur descend d'un étage (on monte) : l'étage suivant, déjà fermé, arrive en face.
-    this.monde.position.y = -this.hauteurEtage * (v * v * (3 - 2 * v));
-    if (u < 1) return true;
-    // Arrivé : la rangée courante devient celle de l'étage atteint, portes fermées.
-    const etage = this.montee.etage;
-    this.montrer(Array.from({ length: this.nb }, () => "cachee"), etage);
-    return false;
-  }
-
-  private animerAlarme(): boolean {
-    if (this.alarmeDebut === null) {
-      this.gyrophare.intensity = 0;
-      return false;
-    }
-    const t = this.temps - this.alarmeDebut;
-    // Un gyrophare : le rouge enfle et retombe, deux fois par seconde, pendant `ALARME_MS` ;
-    // ensuite il reste allumé, fixe — la boucle s'arrête (le bilan peut rester affiché longtemps).
-    const actif = t < ALARME_MS;
-    this.gyrophare.intensity = actif ? 6 * (0.55 + 0.45 * Math.sin(t * 0.0125)) : 4;
-    const porte = this.rangees[0]?.portes.find((p) => p.contenu === "piege");
-    if (porte) {
-      porte.racine.getWorldPosition(this.gyrophare.position);
-      this.gyrophare.position.z = 1.5;
-      if (actif) porte.alarme.rotation.z = t * 0.008;
-    }
-    return actif;
-  }
-
-  private alarmer(oui: boolean): void {
-    this.alarmeDebut = oui ? this.temps : null;
-  }
-
-  private ecrirePlaque(r: Rangee | undefined, etage: number): void {
-    if (!r) return;
-    const affiche = Math.min(etage + 1, this.etages);
-    r.plaque.material.map?.dispose();
-    r.plaque.material.map = texte(`ÉTAGE ${affiche}`, NEON.yel, NEON.bg, 512, 96);
-    r.plaque.material.needsUpdate = true;
-  }
-
-  /** Réapplique l'état courant après une recomposition, sans relancer la boucle depuis la boucle. */
-  private montrerSansRelancer(): void {
-    const contenus = [...this.contenusActuels];
-    const etage = this.etage;
-    const [courante] = this.rangees;
-    this.ecrirePlaque(courante, etage);
-    this.ecrirePlaque(this.rangees[1], etage + 1);
-    courante.portes.forEach((p, i) => {
-      this.remplir(p, contenus[i] ?? "cachee");
-      this.poserAngle(p, contenus[i] && contenus[i] !== "cachee" ? OUVERT : 0);
-    });
-    if (this.survolee !== null) this.survoler(this.survolee);
   }
 }
