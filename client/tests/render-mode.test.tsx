@@ -4,9 +4,44 @@ import userEvent from "@testing-library/user-event";
 import {
   chooseRender,
   loadRenderPreference,
+  qualiteRendu,
   setRenderPreference,
   webglAvailable,
 } from "../src/three/support.ts";
+
+/** `matchMedia` factice : ne répond « oui » qu'aux requêtes listées. */
+function simulerMedias(...vraies: string[]) {
+  vi.stubGlobal(
+    "matchMedia",
+    (query: string) =>
+      ({
+        matches: vraies.some((v) => query.includes(v)),
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }) as unknown as MediaQueryList,
+  );
+}
+
+describe("qualiteRendu", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("haute sur un ordinateur (pointeur fin)", () => {
+    simulerMedias("pointer: fine");
+    expect(qualiteRendu()).toBe("haute");
+  });
+
+  it("normale sur un téléphone (pointeur grossier)", () => {
+    simulerMedias("pointer: coarse");
+    expect(qualiteRendu()).toBe("normale");
+  });
+
+  it("normale quand le navigateur ne sait pas répondre", () => {
+    expect(qualiteRendu()).toBe("normale");
+  });
+});
 import { useRenderMode } from "../src/three/useRenderMode.ts";
 import { RenderToggle } from "../src/three/RenderToggle.tsx";
 

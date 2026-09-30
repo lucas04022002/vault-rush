@@ -18,3 +18,13 @@ export const NEON = {
   text: "#FFF6FA",
   dim: "#A99CC4",
 } as const;
+
+/**
+ * Les matières 3D qui n'ont pas d'équivalent dans l'interface : le chrome des clous et du
+ * cadre (un blanc à peine lavande, comme la salle qu'il reflète) et le blanc neutre du
+ * cristal, que seule la lumière colore.
+ */
+export const MATIERES = {
+  chrome: "#E4DDF2",
+  cristal: "#FFFFFF",
+} as const;
