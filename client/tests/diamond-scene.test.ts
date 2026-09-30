@@ -1,19 +1,27 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import {
-  BoxGeometry,
-  type Material,
+  type BoxGeometry,
+  Color,
+  type InstancedMesh,
+  Matrix4,
   Mesh,
   type MeshBasicMaterial,
   type MeshStandardMaterial,
-  OctahedronGeometry,
   PerspectiveCamera,
-  PlaneGeometry,
+  type PlaneGeometry,
   Points,
   type PointsMaterial,
   Scene,
+  Vector3,
 } from "three";
-import { DiamondScene, type DiamondState } from "../src/games/diamond3d/DiamondScene.ts";
+import {
+  CASE_ALLUMEE,
+  CLOU_MS,
+  DiamondScene,
+  type DiamondState,
+  NOMS,
+} from "../src/games/diamond3d/DiamondScene.ts";
 import { gemPosition, restPosition } from "../src/games/diamond3d/trajectory.ts";
 import { NEON } from "../src/three/palette.ts";
 import type { Stage, Tick } from "../src/three/stage.ts";
@@ -34,9 +42,14 @@ const REPOS: DiamondState = { path: null, row: 0, landedSlot: null };
 function banc(slots: number[] = DOUX) {
   const scene = new Scene();
   let tick: Tick | null = null;
+  const focales: number[] = [];
   const stage = {
     scene,
     camera: new PerspectiveCamera(40, 1, 0.1, 200),
+    qualite: "normale",
+    setFocus(distance: number) {
+      focales.push(distance);
+    },
     requestRender() {},
     run(t: Tick) {
       tick = t;
@@ -51,12 +64,13 @@ function banc(slots: number[] = DOUX) {
   scene.traverse((o) => {
     if (o instanceof Mesh) objets.push(o);
   });
-  const gem = objets.find((o) => o.geometry instanceof OctahedronGeometry) as Mesh;
-  const cases = objets.filter((o) => o.geometry instanceof BoxGeometry) as Mesh<BoxGeometry, MeshStandardMaterial>[];
-  // Le fond du plateau est aussi un plan, mais opaque : seules les étiquettes sont transparentes.
-  const etiquettes = objets.filter(
-    (o) => o.geometry instanceof PlaneGeometry && (o.material as Material).transparent,
-  ) as Mesh<PlaneGeometry, MeshBasicMaterial>[];
+  const gem = objets.find((o) => o.name === NOMS.diamant) as Mesh;
+  const cases = objets.filter((o) => o.name === NOMS.case) as Mesh<BoxGeometry, MeshStandardMaterial>[];
+  const etiquettes = objets.filter((o) => o.name === NOMS.etiquette) as Mesh<
+    PlaneGeometry,
+    MeshBasicMaterial
+  >[];
+  const clous = objets.find((o) => o.name === NOMS.clous) as InstancedMesh;
   const eclats = () => {
     const trouves: Points[] = [];
     scene.traverse((o) => {
@@ -67,9 +81,18 @@ function banc(slots: number[] = DOUX) {
 
   return {
     diamant,
+    stage,
+    focales,
     gem,
     cases,
     etiquettes,
+    clous,
+    /** L'échelle du clou n° `instance`, lue dans sa matrice comme le ferait le rendu. */
+    echelleClou(instance: number) {
+      const m = new Matrix4();
+      clous.getMatrixAt(instance, m);
+      return new Vector3().setFromMatrixScale(m).x;
+    },
     eclats,
     /** Une image de `dt` ms, comme la boucle du socle. */
     tick: (dt: number) => {
@@ -133,7 +156,7 @@ describe("DiamondScene", () => {
 
     expect(b.cases[0].material.emissive.getHexString()).toBe("c08bff");
     expect(NEON.gem.toLowerCase()).toBe("#c08bff");
-    expect(b.cases[0].material.emissiveIntensity).toBe(0.5);
+    expect(b.cases[0].material.emissiveIntensity).toBe(CASE_ALLUMEE);
     expect(b.etiquettes[0].material.color.r).toBeCloseTo(0.2, 6);
     expect(b.etiquettes[0].material.color.g).toBeCloseTo(0.2, 6);
     // ×6,03 : ça jaillit.
@@ -194,10 +217,100 @@ describe("DiamondScene", () => {
     b.ecouler(400);
 
     expect(b.cases[0].material.emissive.getHexString()).toBe("c08bff");
-    expect(b.cases[0].material.emissiveIntensity).toBe(0.5);
+    expect(b.cases[0].material.emissiveIntensity).toBe(CASE_ALLUMEE);
     expect(b.etiquettes[0].material.color.r).toBeCloseTo(0.2, 6);
     // Ni gerbe d'éclats, ni pulsation de l'étiquette.
     expect(b.eclats()).toHaveLength(0);
     expect(b.etiquettes[0].scale.x).toBe(1);
+  });
+});
+
+describe("DiamondScene — chrome, caméra de cinéma", () => {
+  /** Droite, gauche, droite, puis toujours à gauche : case 2. */
+  const ZIGZAG = [true, false, true, false, false, false, false, false];
+  /** Le clou touché à la rangée r : indice = nombre de « à droite » déjà faits. */
+  const clouTouche = (path: boolean[], r: number) =>
+    (r * (r + 1)) / 2 + path.slice(0, r).filter(Boolean).length;
+
+  it("le diamant fait vibrer exactement les clous de son chemin, et aucun autre", () => {
+    const b = banc();
+    b.diamant.update({ path: ZIGZAG, row: 0, landedSlot: null });
+    b.tick(0);
+    // L'écran est déjà à la rangée 4 : le diamant rattrape et touche les rangées 0 à 3.
+    b.diamant.update({ path: ZIGZAG, row: 4, landedSlot: null });
+    b.tick(16);
+
+    const touches = [0, 1, 2, 3].map((r) => clouTouche(ZIGZAG, r));
+    expect(touches).toEqual([0, 2, 4, 8]);
+    for (const instance of touches) expect(b.echelleClou(instance)).toBeGreaterThan(1);
+    // Les voisins n'ont pas bougé.
+    for (const instance of [1, 3, 5, 6, 7, 9]) expect(b.echelleClou(instance)).toBe(1);
+  });
+
+  it("un clou touché s'éclaire en améthyste puis revient au chrome, à sa taille", () => {
+    const b = banc();
+    b.diamant.update({ path: ZIGZAG, row: 0, landedSlot: null });
+    b.tick(0);
+    b.diamant.update({ path: ZIGZAG, row: 1, landedSlot: null });
+    b.ecouler(ROW_MS); // le diamant atteint le premier clou
+
+    const couleur = new Color();
+    b.clous.getColorAt(0, couleur);
+    expect(couleur.getHexString()).not.toBe("e4ddf2");
+
+    b.ecouler(CLOU_MS + 50);
+    b.clous.getColorAt(0, couleur);
+    expect(couleur.getHexString()).toBe("e4ddf2");
+    expect(b.echelleClou(0)).toBeCloseTo(1, 6);
+  });
+
+  it("une reprise en pleine chute ne refait pas tinter les clous déjà passés", () => {
+    const b = banc();
+    b.diamant.update({ path: ZIGZAG, row: 5, landedSlot: null });
+    b.tick(16);
+    for (let r = 0; r < 5; r++) expect(b.echelleClou(clouTouche(ZIGZAG, r))).toBe(1);
+  });
+
+  /** La distance caméra → diamant au cœur du ralenti, pour un chemin donné. */
+  function distanceAuRalenti(path: boolean[], slots = DOUX) {
+    const b = banc(slots);
+    b.diamant.update({ path, row: 0, landedSlot: null });
+    b.tick(0);
+    b.diamant.update({ path, row: ROWS - 1, landedSlot: null });
+    b.ecouler(1500);
+    return b.stage.camera.position.distanceTo(b.gem.getWorldPosition(new Vector3()));
+  }
+
+  it("sur un gros gain, la caméra se resserre pendant le ralenti ; pas sur un petit", () => {
+    const gros = distanceAuRalenti(GAUCHE); // case 0 : ×6,03
+    const petit = distanceAuRalenti([true, false, true, false, true, false, true, false]); // ×0,72
+    expect(gros).toBeLessThan(petit * 0.8);
+  });
+
+  it("la mise au point suit le diamant", () => {
+    const b = banc();
+    b.diamant.update({ path: GAUCHE, row: 0, landedSlot: null });
+    b.tick(0);
+    b.diamant.update({ path: GAUCHE, row: 3, landedSlot: null });
+    b.ecouler(600);
+    const attendu = b.stage.camera.position.distanceTo(b.gem.getWorldPosition(new Vector3()));
+    expect(b.focales.at(-1)).toBeCloseTo(attendu, 6);
+  });
+
+  it("un gros gain fait trembler la caméra à l'arrivée, puis elle se pose", () => {
+    const b = banc();
+    b.diamant.update({ path: GAUCHE, row: 0, landedSlot: null });
+    b.tick(0);
+    b.diamant.update({ path: GAUCHE, row: ROWS, landedSlot: 0 });
+    // Le diamant arrive, la caméra glisse : on la laisse se poser, puis on observe sa position.
+    const positions: number[] = [];
+    for (let t = 0; t < 3000; t += 16) {
+      b.tick(16);
+      positions.push(b.stage.camera.position.x);
+    }
+    // Des allers-retours (la secousse) puis l'immobilité : les dernières images ne bougent plus.
+    const fin = positions.slice(-20);
+    expect(Math.max(...fin) - Math.min(...fin)).toBeLessThan(1e-6);
+    expect(b.tick(16)).toBe(false);
   });
 });

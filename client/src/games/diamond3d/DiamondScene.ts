@@ -5,24 +5,29 @@ import {
   BufferGeometry,
   CanvasTexture,
   Color,
+  DirectionalLight,
   Group,
   InstancedMesh,
+  LatheGeometry,
   Mesh,
   MeshBasicMaterial,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
   Object3D,
-  OctahedronGeometry,
   PlaneGeometry,
+  PointLight,
   Points,
   PointsMaterial,
   SphereGeometry,
   SRGBColorSpace,
+  Vector2,
   Vector3,
 } from "three";
 import { formatMultiplier } from "../../lib/format.ts";
-import { NEON } from "../../three/palette.ts";
+import { MATIERES, NEON } from "../../three/palette.ts";
 import type { Stage } from "../../three/stage.ts";
 import { heatOf, type SlotHeat } from "../heat.ts";
+import { estGrosGain, RANGEES_AU_RALENTI } from "./rythme.ts";
 import {
   type Focus,
   follow,
@@ -53,6 +58,38 @@ const PULSE_MS = 320;
 const SPARK_COUNT = 64;
 /** Multiplicateur à partir duquel l'arrivée jaillit. */
 export const CELEBRATE_FROM = 2;
+/** Durée de la vibration d'un clou touché, en ms. */
+export const CLOU_MS = 260;
+/** Intensité de la lueur améthyste de la case d'arrivée. */
+export const CASE_ALLUMEE = 1;
+/** Largeur (en cases) du cadre pendant le ralenti d'un gros gain : la caméra se resserre. */
+export const ZOOM_WIDTH = 4.5;
+/** Secousse de la caméra à l'arrivée d'un gros gain : durée (ms) et amplitude (en cases). */
+const SECOUSSE_MS = 350;
+const SECOUSSE_AMPLITUDE = 0.07;
+/** Couleur de repos du chrome des clous (légèrement lavande, comme la salle). */
+const CHROME = MATIERES.chrome;
+
+/**
+ * Le profil d'un diamant taille brillant, tourné autour de l'axe vertical en 8 facettes :
+ * pointe du pavillon en bas, rondiste, couronne, table en haut.
+ */
+const PROFIL_BRILLANT = [
+  new Vector2(0.001, -0.34),
+  new Vector2(0.24, 0),
+  new Vector2(0.24, 0.035),
+  new Vector2(0.16, 0.13),
+  new Vector2(0.001, 0.13),
+];
+
+/** Noms des objets de la scène : les tests et les outils de débogage les retrouvent ainsi. */
+export const NOMS = {
+  diamant: "diamant",
+  clous: "clous",
+  case: "case",
+  etiquette: "etiquette",
+  plateau: "plateau",
+} as const;
 
 export type DiamondState = { path: boolean[] | null; row: number; landedSlot: number | null };
 
@@ -93,10 +130,17 @@ export class DiamondScene {
   private readonly slots: number[];
   private readonly board = new Group();
   private readonly gem: Mesh;
+  private readonly clous: InstancedMesh<SphereGeometry, MeshStandardMaterial>;
+  /** Clous touchés qui vibrent encore : indice d'instance → âge de la vibration (ms). */
+  private readonly vibrations = new Map<number, number>();
+  /** Dernière rangée entière franchie par le diamant affiché (pour savoir quel clou il touche). */
+  private dernierClou = -1;
+  private secousse = 0;
   private readonly cases: Mesh<BoxGeometry, MeshStandardMaterial>[] = [];
   private readonly etiquettes: Mesh<PlaneGeometry, MeshBasicMaterial>[] = [];
   private readonly camera = { x: 0, y: 0, width: 1, height: 1 };
   private readonly cible = new Vector3();
+  private readonly focale = new Vector3();
 
   private path: boolean[] | null = null;
   private affichee = 0;
@@ -121,39 +165,104 @@ export class DiamondScene {
     this.board.rotation.x = TILT;
     stage.scene.add(this.board);
 
-    // Le fond du plateau.
+    // Le plateau : métal brossé sombre (l'anisotropie étire les reflets du studio comme un
+    // métal poli dans un sens), qui reçoit les ombres du diamant et des clous.
     const vue = overview(rows);
     const fond = new Mesh(
       new PlaneGeometry(vue.width + 0.6, vue.height + 0.6),
-      // Fond mat, insensible aux lumières : éclairé, il virait au lilas délavé sous le halo.
-      new MeshBasicMaterial({ color: new Color(NEON.panel) }),
+      new MeshPhysicalMaterial({
+        color: new Color(NEON.panel2),
+        metalness: 0.5,
+        roughness: 0.62,
+        anisotropy: 0.6,
+        anisotropyRotation: Math.PI / 2,
+        envMap: stage.studio,
+        envMapIntensity: 0.12,
+      }),
     );
+    fond.name = NOMS.plateau;
     fond.position.set(0, vue.y, -0.25);
+    fond.receiveShadow = true;
     this.board.add(fond);
 
-    // Les clous : une seule géométrie instanciée, néon améthyste.
+    // Un cadre chromé autour du plateau : quatre baguettes fines.
+    const chrome = new MeshStandardMaterial({
+      color: new Color(CHROME),
+      metalness: 1,
+      roughness: 0.3,
+      envMap: stage.studio,
+      envMapIntensity: 0.6,
+    });
+    const largeur = vue.width + 0.6;
+    const hauteur = vue.height + 0.6;
+    for (const [w, h, x, y] of [
+      [largeur + 0.16, 0.08, 0, vue.y + hauteur / 2],
+      [largeur + 0.16, 0.08, 0, vue.y - hauteur / 2],
+      [0.08, hauteur, -largeur / 2, vue.y],
+      [0.08, hauteur, largeur / 2, vue.y],
+    ] as const) {
+      const baguette = new Mesh(new BoxGeometry(w, h, 0.12), chrome);
+      baguette.position.set(x, y, -0.19);
+      this.board.add(baguette);
+    }
+
+    // Un liseré néon améthyste juste à l'intérieur du cadre : l'identité du site, sans halo.
+    const neon = new MeshBasicMaterial({ color: new Color(NEON.gem) });
+    const ecart = 0.1;
+    for (const [w, h, x, y] of [
+      [largeur - 2 * ecart, 0.025, 0, vue.y + hauteur / 2 - ecart],
+      [largeur - 2 * ecart, 0.025, 0, vue.y - hauteur / 2 + ecart],
+      [0.025, hauteur - 2 * ecart, -largeur / 2 + ecart, vue.y],
+      [0.025, hauteur - 2 * ecart, largeur / 2 - ecart, vue.y],
+    ] as const) {
+      const trait = new Mesh(new PlaneGeometry(w, h), neon);
+      trait.position.set(x, y, -0.24);
+      this.board.add(trait);
+    }
+
+    // Les clous : une seule géométrie instanciée, en chrome qui reflète le studio. Chaque
+    // instance a sa couleur (un clou touché s'éclaire en améthyste) et sa taille (il vibre).
     const total = (rows * (rows + 1)) / 2;
-    const clous = new InstancedMesh(
-      new SphereGeometry(0.09, 16, 12),
+    this.clous = new InstancedMesh(
+      new SphereGeometry(0.1, 24, 18),
       new MeshStandardMaterial({
-        color: new Color(NEON.gem),
-        emissive: new Color(NEON.gem),
-        emissiveIntensity: 1.2,
-        roughness: 0.3,
+        color: new Color(MATIERES.cristal),
+        metalness: 1,
+        roughness: 0.12,
+        envMap: stage.studio,
       }),
       total,
     );
-    const place = new Object3D();
+    this.clous.name = NOMS.clous;
+    this.clous.castShadow = true;
+    const repos = new Color(CHROME);
     let n = 0;
     for (let rangee = 0; rangee < rows; rangee++) {
       for (let i = 0; i <= rangee; i++) {
-        const p = pinPosition(rangee, i);
-        place.position.set(p.x, p.y, GEM_Z);
-        place.updateMatrix();
-        clous.setMatrixAt(n++, place.matrix);
+        this.placerClou(n, 1);
+        this.clous.setColorAt(n, repos);
+        n++;
       }
     }
-    this.board.add(clous);
+    this.board.add(this.clous);
+
+    // La lumière qui projette les ombres, fixée au plateau (elle s'incline avec lui), cadrée
+    // sur lui seul pour que la carte d'ombres garde toute sa finesse.
+    const soleil = new DirectionalLight(new Color(NEON.text), 1.3);
+    soleil.position.set(vue.width * 0.15, vue.y + vue.height * 0.35, 8);
+    soleil.target.position.set(0, vue.y, 0);
+    soleil.castShadow = true;
+    const cote = stage.qualite === "haute" ? 2048 : 1024;
+    soleil.shadow.mapSize.set(cote, cote);
+    soleil.shadow.camera.left = -vue.width / 2 - 1;
+    soleil.shadow.camera.right = vue.width / 2 + 1;
+    soleil.shadow.camera.top = vue.height / 2 + 1;
+    soleil.shadow.camera.bottom = -vue.height / 2 - 1;
+    soleil.shadow.camera.near = 1;
+    soleil.shadow.camera.far = 20;
+    soleil.shadow.bias = -0.0004;
+    soleil.shadow.normalBias = 0.02;
+    this.board.add(soleil, soleil.target);
 
     // Les cases, colorées par leur chaleur, le multiplicateur écrit sur la face.
     slots.forEach((multiplicateur, index) => {
@@ -165,9 +274,13 @@ export class DiamondScene {
           color: new Color(teinte.fond),
           emissive: new Color(teinte.lueur),
           emissiveIntensity: teinte.intensite,
-          roughness: 0.5,
+          // Laqué : un peu de reflet du studio, sans devenir un miroir qui noierait le chiffre.
+          metalness: 0.15,
+          roughness: 0.32,
         }),
       );
+      boite.name = NOMS.case;
+      boite.receiveShadow = true;
       boite.position.set(centre.x, centre.y - SLOT_HEIGHT / 2, 0);
       this.board.add(boite);
       this.cases.push(boite);
@@ -180,24 +293,40 @@ export class DiamondScene {
           depthWrite: false,
         }),
       );
+      texte.name = NOMS.etiquette;
       texte.position.set(centre.x, centre.y - SLOT_HEIGHT / 2, 0.16);
       this.board.add(texte);
       this.etiquettes.push(texte);
     });
 
-    // Le diamant : un octaèdre étiré, facetté, reflet magenta.
+    // Le diamant : taille brillant à 8 facettes, en cristal. La transmission laisse passer la
+    // lumière, l'indice 2,42 est celui du diamant, la dispersion sépare les couleurs (les
+    // éclats arc-en-ciel) et l'iridescence irise les facettes quand il tourne.
     this.gem = new Mesh(
-      new OctahedronGeometry(0.22, 0),
-      new MeshStandardMaterial({
-        color: new Color(NEON.gem),
-        emissive: new Color(NEON.mag),
-        emissiveIntensity: 0.6,
-        metalness: 0.3,
-        roughness: 0.15,
+      new LatheGeometry(PROFIL_BRILLANT, 8),
+      new MeshPhysicalMaterial({
+        color: new Color(MATIERES.cristal),
+        metalness: 0,
+        roughness: 0.02,
+        transmission: 1,
+        thickness: 0.6,
+        ior: 2.42,
+        dispersion: 4,
+        iridescence: 0.5,
+        iridescenceIOR: 1.6,
+        attenuationColor: new Color(NEON.gem),
+        attenuationDistance: 1.2,
+        envMap: this.stage.studio,
+        envMapIntensity: 2.2,
         flatShading: true,
       }),
     );
-    this.gem.scale.set(1, 1.35, 1);
+    this.gem.name = NOMS.diamant;
+    this.gem.castShadow = true;
+    // Une petite lumière emportée par le diamant : elle fait briller les clous qu'il frôle.
+    const eclat = new PointLight(new Color(NEON.text), 1.2, 1.6, 2);
+    eclat.position.set(0, 0.1, 0.35);
+    this.gem.add(eclat);
     this.board.add(this.gem);
 
     // Caméra : d'emblée sur tout le plateau, sans glissement au premier affichage.
@@ -216,6 +345,8 @@ export class DiamondScene {
       // Un lâcher neuf part du diamant en attente (rangée « −1 ») ; une reprise saute à la rangée courante.
       this.affichee = path && row === 0 ? -1 : row;
       this.arriveeSilencieuse = path !== null && row >= path.length;
+      // Une reprise ne refait pas tinter les clous déjà passés.
+      this.dernierClou = Math.floor(this.affichee);
       this.eteindre();
     }
     this.visee = row;
@@ -238,7 +369,10 @@ export class DiamondScene {
 
     const p = this.position();
     this.gem.position.set(p.x, p.y, GEM_Z);
-    if (bouge) this.gem.rotation.y += dt * 0.008;
+    if (bouge) {
+      this.gem.rotation.y += dt * 0.008;
+      this.toucherClous();
+    }
 
     if (
       this.path &&
@@ -249,11 +383,75 @@ export class DiamondScene {
       this.arriver(this.posee);
     }
 
+    const secoue = this.secousse > 0;
+    this.secousse = Math.max(0, this.secousse - dt);
     const camBouge = this.suivre(this.cadrage(p), dt);
     const pulse = this.pulser(dt);
     const eclats = this.animerEclats(dt);
-    return bouge || camBouge || pulse || eclats;
+    const vibre = this.vibrer(dt);
+    return bouge || camBouge || pulse || eclats || vibre || secoue;
   };
+
+  /** La case tirée par le serveur : le nombre de « à droite » du chemin. */
+  private caseTiree(): number | null {
+    return this.path ? this.path.filter(Boolean).length : null;
+  }
+
+  /** Vrai pendant le ralenti d'un gros gain (les dernières rangées). */
+  private auRalenti(): boolean {
+    const slot = this.caseTiree();
+    if (!this.path || slot === null) return false;
+    return (
+      estGrosGain(this.slots[slot] ?? 0) &&
+      this.affichee >= this.path.length - RANGEES_AU_RALENTI
+    );
+  }
+
+  /** Chaque rangée entière franchie : le clou que le diamant vient de toucher se met à vibrer. */
+  private toucherClous(): void {
+    if (!this.path) return;
+    const atteinte = Math.min(Math.floor(this.affichee), this.path.length - 1);
+    for (let rangee = this.dernierClou + 1; rangee <= atteinte; rangee++) {
+      if (rangee < 0) continue;
+      // Le clou touché à la rangée `rangee` : celui dont l'indice est le nombre de « à droite »
+      // déjà faits — exactement celui sur lequel `gemPosition` pose le diamant.
+      const index = this.path.slice(0, rangee).filter(Boolean).length;
+      this.vibrations.set((rangee * (rangee + 1)) / 2 + index, 0);
+    }
+    this.dernierClou = Math.max(this.dernierClou, atteinte);
+  }
+
+  /** Les clous touchés grossissent et s'éclairent, puis reviennent au chrome. */
+  private vibrer(dt: number): boolean {
+    if (this.vibrations.size === 0) return false;
+    const repos = new Color(CHROME);
+    const eclaire = new Color(NEON.gem);
+    for (const [instance, age] of this.vibrations) {
+      const suivant = age + dt;
+      const u = Math.min(suivant / CLOU_MS, 1);
+      // Un coup sec puis une oscillation qui s'éteint.
+      this.placerClou(instance, 1 + 0.45 * (1 - u) * Math.cos(u * Math.PI * 3));
+      this.clous.setColorAt(instance, eclaire.clone().lerp(repos, u));
+      if (u >= 1) this.vibrations.delete(instance);
+      else this.vibrations.set(instance, suivant);
+    }
+    this.clous.instanceMatrix.needsUpdate = true;
+    if (this.clous.instanceColor) this.clous.instanceColor.needsUpdate = true;
+    return this.vibrations.size > 0;
+  }
+
+  /** Place le clou n° `instance` (rangée par rangée, de gauche à droite) à l'échelle voulue. */
+  private placerClou(instance: number, echelle: number): void {
+    let rangee = Math.floor((Math.sqrt(8 * instance + 1) - 1) / 2);
+    if (((rangee + 1) * (rangee + 2)) / 2 <= instance) rangee++;
+    const index = instance - (rangee * (rangee + 1)) / 2;
+    const p = pinPosition(rangee, index);
+    const objet = new Object3D();
+    objet.position.set(p.x, p.y, GEM_Z);
+    objet.scale.setScalar(echelle);
+    objet.updateMatrix();
+    this.clous.setMatrixAt(instance, objet.matrix);
+  }
 
   /** Où dessiner le diamant : en attente, entre l'attente et le premier clou, ou sur le chemin. */
   private position(): Point {
@@ -273,7 +471,17 @@ export class DiamondScene {
   private cadrage(p: Point): Focus {
     if (!this.path) return overview(this.rows);
     const suivi = follow(this.rows, p);
-    return this.arrivee ? { ...suivi, y: p.y - SLOT_HEIGHT } : suivi;
+    // Gros gain : pendant le ralenti, la caméra se resserre sur le diamant.
+    const cadre = this.auRalenti() ? { ...suivi, width: Math.min(suivi.width, ZOOM_WIDTH) } : suivi;
+    const vise = this.arrivee ? p.y - SLOT_HEIGHT : cadre.y;
+    // Jamais de vide dans le cadre : ni le noir au-dessus du plateau au départ, ni celui sous
+    // les cases à l'arrivée (mesuré le 30/09 : la moitié basse de l'image était noire).
+    const plateau = overview(this.rows);
+    const demiHauteur = cadre.width / 2 / Math.max(this.stage.camera.aspect, 1e-3);
+    const haut = plateau.y + plateau.height / 2 - demiHauteur;
+    const bas = plateau.y - plateau.height / 2 + demiHauteur;
+    const y = bas > haut ? plateau.y : Math.min(Math.max(vise, bas), haut);
+    return { ...cadre, y };
   }
 
   /** La caméra glisse vers ce qu'elle doit montrer ; `true` tant qu'elle n'y est pas. */
@@ -302,8 +510,16 @@ export class DiamondScene {
     this.board.updateMatrixWorld();
     this.cible.set(this.camera.x, this.camera.y, 0);
     this.board.localToWorld(this.cible);
-    camera.position.set(this.cible.x, this.cible.y + distance * 0.12, this.cible.z + distance);
+    // La secousse d'un gros gain : une oscillation amortie, la même à chaque fois.
+    const force = (this.secousse / SECOUSSE_MS) * SECOUSSE_AMPLITUDE;
+    const dx = force * Math.sin(this.secousse * 0.09);
+    const dy = force * Math.cos(this.secousse * 0.11);
+    camera.position.set(this.cible.x + dx, this.cible.y + distance * 0.12 + dy, this.cible.z + distance);
     camera.lookAt(this.cible);
+
+    // La mise au point suit le diamant : le reste du plateau part doucement dans le flou.
+    this.gem.getWorldPosition(this.focale);
+    this.stage.setFocus(camera.position.distanceTo(this.focale));
   }
 
   private arriver(slot: number): void {
@@ -312,14 +528,16 @@ export class DiamondScene {
     if (boite) {
       // Même une case banale s'allume en améthyste : c'est ELLE que le joueur doit voir.
       boite.material.emissive.set(NEON.gem);
-      // 0,5 et pas plus : au-delà, le halo rend la case blanche et son multiplicateur illisible.
-      boite.material.emissiveIntensity = 0.5;
+      // Sans halo depuis le rendu « studio », la case doit briller par elle-même ; son chiffre, passé en
+      // sombre, reste lisible.
+      boite.material.emissiveIntensity = CASE_ALLUMEE;
     }
     // Sur la case allumée, le chiffre passe en sombre (la couleur de la texture est multipliée).
     this.etiquettes[slot]?.material.color.setScalar(0.2);
     if (this.arriveeSilencieuse) return;
     this.pulse = PULSE_MS;
     if ((this.slots[slot] ?? 0) >= CELEBRATE_FROM) this.jaillir(slot);
+    if (estGrosGain(this.slots[slot] ?? 0)) this.secousse = SECOUSSE_MS;
   }
 
   private eteindre(): void {

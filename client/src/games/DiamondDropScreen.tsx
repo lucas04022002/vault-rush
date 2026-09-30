@@ -3,7 +3,8 @@ import { Link } from "react-router";
 import { api, type GameConfig, type Round } from "../api.ts";
 import { Amount, Button, PageTitle, Toast } from "../components/index.ts";
 import { formatCoins, formatMultiplier } from "../lib/format.ts";
-import { playOutcome } from "../lib/sound.ts";
+import { playOutcome, playPeg } from "../lib/sound.ts";
+import { dureeRangee, MS_RANGEE_3D } from "./diamond3d/rythme.ts";
 import { useSession } from "../session.tsx";
 import { Fallback } from "../three/Fallback.tsx";
 import { RenderToggle } from "../three/RenderToggle.tsx";
@@ -34,22 +35,25 @@ const DiamondBoard3D = lazy(() => import("./diamond3d/DiamondBoard3D.tsx"));
 /** Durée d'une rangée de chute, en millisecondes. */
 const MS_PAR_RANGEE = 90;
 
-/** En 3D, une rangée dure plus longtemps : le temps de voir le rebond sur chaque clou. */
-const MS_PAR_RANGEE_3D = 140;
-
 export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
   const { balanceCents, setBalance } = useSession();
   const rendu = useRenderMode();
   /** La 3D a levé pendant cette partie : on montre le plateau 2D jusqu'à la partie suivante. */
   const [echec3d, setEchec3d] = useState(false);
   const en3d = rendu.mode === "3d" && !echec3d;
-  const msParRangee = en3d ? MS_PAR_RANGEE_3D : MS_PAR_RANGEE;
 
   /** La chute en cours : le chemin reçu du serveur et la case d'arrivée. */
   const [chute, setChute] = useState<DropDrop | null>(null);
   /** Nombre de rangées déjà franchies par le diamant. */
   const [rangee, setRangee] = useState(0);
   const [posee, setPosee] = useState(false);
+  // En 3D, une rangée dure 140 ms (le temps de voir le rebond) et les dernières ralentissent
+  // sur un gros gain : voir `diamond3d/rythme.ts`. La 2D garde son pas de 90 ms.
+  const msParRangee = !en3d
+    ? MS_PAR_RANGEE
+    : chute
+      ? dureeRangee(rangee, chute.path.length, chute.multiplier)
+      : MS_RANGEE_3D;
 
   const onReset = useCallback(() => {
     setChute(null);
@@ -89,6 +93,13 @@ export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
     const minuteur = setTimeout(() => setRangee((r) => r + 1), msParRangee);
     return () => clearTimeout(minuteur);
   }, [chute, posee, rangee, msParRangee, en3d]);
+
+  // Un tintement par clou franchi, de plus en plus aigu vers l'arrivée (son coupé par défaut).
+  useEffect(() => {
+    if (chute && !posee && rangee > 0 && rangee <= chute.path.length) {
+      playPeg(rangee - 1, chute.path.length);
+    }
+  }, [chute, posee, rangee]);
 
   // Le son ne part qu'une fois le diamant posé, pas au clic.
   useEffect(() => {
@@ -229,7 +240,7 @@ export function DiamondDropScreen({ gameId, config: jeu }: GameScreenProps) {
                   path={chute?.path ?? null}
                   row={rangee}
                   landedSlot={posee ? (chute?.slot ?? null) : null}
-                  rowMs={MS_PAR_RANGEE_3D}
+                  rowMs={msParRangee}
                 />
               </Suspense>
             </Fallback>

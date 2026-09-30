@@ -16,6 +16,19 @@ export function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+/**
+ * Le niveau de finition du rendu 3D : « haute » sur un appareil à pointeur fin (un
+ * ordinateur, qui a la marge pour le flou de profondeur et des ombres fines),
+ * « normale » ailleurs — un téléphone garde le cristal, le chrome et les ombres,
+ * sans ce qui coûte le plus.
+ */
+export type Qualite = "haute" | "normale";
+
+export function qualiteRendu(): Qualite {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "normale";
+  return window.matchMedia("(pointer: fine)").matches ? "haute" : "normale";
+}
+
 /** Vrai si un contexte WebGL se crée sur un canvas jetable, aussitôt relâché. */
 export function webglAvailable(): boolean {
   if (typeof document === "undefined") return false;
