@@ -61,6 +61,29 @@ function tone(freq: number, start: number, duration: number, type: OscillatorTyp
   osc.stop(ctx.currentTime + start + duration + 0.02);
 }
 
+/**
+ * La note du clou touché à la rangée `rangee` sur `total` : un la (880 Hz) au premier
+ * clou, l'octave au-dessus (1 760 Hz) au dernier, en montant régulièrement — la chute
+ * s'entend approcher de l'arrivée.
+ */
+export function frequenceClou(rangee: number, total: number): number {
+  const u = total <= 1 ? 0 : Math.min(Math.max(rangee / (total - 1), 0), 1);
+  return 880 * 2 ** u;
+}
+
+/**
+ * Le tintement d'un clou de Diamond Drop. Joué pendant l'animation d'un chemin que le
+ * serveur a DÉJÀ tiré : il accompagne le résultat, il ne l'annonce pas avant l'heure.
+ */
+export function playPeg(rangee: number, total: number): void {
+  if (!enabled) return;
+  try {
+    tone(frequenceClou(rangee, total), 0, 0.06, "triangle", 0.07);
+  } catch {
+    // Un navigateur qui refuse l'audio ne doit jamais casser l'écran de jeu.
+  }
+}
+
 export type SoundName = "safe" | "danger" | "cashout";
 
 /** Joue le son d'un RÉSULTAT, donc toujours après une réponse du serveur. */

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { baseApi } from "./helpers/fake-api.ts";
 import { renderApp } from "./helpers/render.tsx";
@@ -545,14 +545,61 @@ describe("la vue 3D", () => {
     expect(intervalle).toBeGreaterThanOrEqual(140);
     expect(intervalle).toBeLessThanOrEqual(150);
 
-    // 8 rangées à 140 ms, plus le pas qui pose le diamant : le bilan arrive.
+    // Le reste de la chute (les dernières rangées au ralenti : ×6,03 est un gros gain), plus le
+    // pas qui pose le diamant : le bilan arrive.
     for (let i = 0; i < 8; i++) {
       act(() => {
-        vi.advanceTimersByTime(140);
+        vi.advanceTimersByTime(350);
       });
     }
     expect(await screen.findByRole("table", { name: "Bilan de la partie" })).toBeInTheDocument();
     expect(screen.getByTestId("plateau-3d")).toHaveAttribute("data-landed", "0");
+  });
+
+  it("en 3D, un gros gain ralentit les trois dernières rangées, un petit gain non", async () => {
+    simulerWebGL();
+    const lacher = (path: boolean[], slot: number, multiplier: number) =>
+      dropApi()
+        .on("GET /api/games/diamond-drop/current", { json: { round: partie() } })
+        .on("POST /api/games/diamond-drop/play", {
+          json: {
+            round: partie({ status: "cashed_out", step: 1, multiplier }),
+            path,
+            slot,
+            multiplier,
+          },
+        })
+        .install();
+
+    // Le rythme que l'écran annonce à la scène, rangée par rangée, jusqu'au bilan.
+    async function rythmes(): Promise<Map<number, string>> {
+      renderApp("/jeux/diamond-drop");
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const utilisateur = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      await utilisateur.click(await screen.findByRole("button", { name: "Lâcher le diamant" }));
+      const plateau = await screen.findByTestId("plateau-3d");
+      const vus = new Map<number, string>();
+      for (let ms = 0; ms < 4000 && !screen.queryByRole("table", { name: "Bilan de la partie" }); ms += 10) {
+        vus.set(Number(plateau.getAttribute("data-row")), plateau.getAttribute("data-row-ms") ?? "");
+        act(() => {
+          vi.advanceTimersByTime(10);
+        });
+      }
+      vi.useRealTimers();
+      return vus;
+    }
+
+    // Case 0 du mode Doux : ×6,03, un gros gain.
+    lacher(GAUCHE, 0, 6.03);
+    const gros = await rythmes();
+    expect([0, 1, 2, 3, 4].map((r) => gros.get(r))).toEqual(["140", "140", "140", "140", "140"]);
+    expect([5, 6, 7, 8].map((r) => gros.get(r))).toEqual(["350", "350", "350", "350"]);
+    cleanup();
+
+    // Case 4 du mode Doux : ×0,72, pas de ralenti.
+    lacher([true, false, true, false, true, false, true, false], 4, 0.72);
+    const petit = await rythmes();
+    expect([...petit.values()].every((ms) => ms === "140")).toBe(true);
   });
 
   it("en 3D, le bilan attend une rangée de plus : il tombe avec le diamant, pas avant", async () => {
