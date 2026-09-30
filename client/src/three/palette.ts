@@ -30,5 +30,5 @@ export const MATIERES = {
   chrome: "#E4DDF2",
   cristal: "#FFFFFF",
   /** L'acier des battants de coffre, plus sombre que le chrome. */
-  acier: "#8F87A6",
+  acier: "#5E5775",
 } as const;

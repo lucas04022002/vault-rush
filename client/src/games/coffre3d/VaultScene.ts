@@ -1,6 +1,7 @@
 import {
   BackSide,
   BoxGeometry,
+  CircleGeometry,
   CanvasTexture,
   Color,
   CylinderGeometry,
@@ -32,7 +33,8 @@ export const RECUL = 10;
 /** Champ vertical de la caméra, en degrés. */
 const CHAMP = 40;
 /** Angle d'un battant grand ouvert (il pivote vers le joueur, gonds à gauche). */
-export const ANGLE_OUVERT = -1.95;
+// À angle droit, le battant se voit par la tranche : grand ouvert (-1,95), il masquait la porte voisine.
+export const ANGLE_OUVERT = -1.5;
 const OUVERT = ANGLE_OUVERT;
 /** Épaisseur d'un battant et profondeur d'une niche. */
 const EPAISSEUR = 0.28;
@@ -93,6 +95,8 @@ type Porte = {
   pivot: Group;
   volant: Group;
   or: Group;
+  /** Le fond de la niche : il s'éclaire d'or chaud ou de rouge selon ce qu'elle cache. */
+  fond: Mesh<CircleGeometry, MeshStandardMaterial>;
   alarme: Group;
   survol: Mesh;
   /** Angle actuel du battant (0 = fermé) et animation en cours. */
@@ -311,15 +315,16 @@ export class VaultScene {
     const chrome = new MeshStandardMaterial({
       color: new Color(MATIERES.chrome),
       metalness: 1,
-      roughness: 0.22,
+      roughness: 0.28,
       envMap: this.stage.studio,
+      envMapIntensity: 0.65,
     });
     const acier = new MeshStandardMaterial({
       color: new Color(MATIERES.acier),
       metalness: 1,
-      roughness: 0.38,
+      roughness: 0.45,
       envMap: this.stage.studio,
-      envMapIntensity: 0.8,
+      envMapIntensity: 0.45,
     });
 
     // La niche : un tube sombre, ouvert vers le joueur, et son fond.
@@ -331,7 +336,7 @@ export class VaultScene {
     niche.position.z = -PROFONDEUR / 2;
     racine.add(niche);
     const fond = new Mesh(
-      new PlaneGeometry(r * 1.8, r * 1.8),
+      new CircleGeometry(r * 0.9, 40),
       new MeshStandardMaterial({ color: new Color(NEON.bg), roughness: 1 }),
     );
     fond.position.z = -PROFONDEUR + 0.01;
@@ -392,13 +397,13 @@ export class VaultScene {
     }
     volant.position.z = 0.06;
     const gravure = new Mesh(
-      new PlaneGeometry(r * 0.5, r * 0.25),
+      new PlaneGeometry(r * 0.7, r * 0.35),
       new MeshBasicMaterial({ map: texte(String(numero), NEON.yel, null), transparent: true, toneMapped: false }),
     );
     gravure.position.set(0, -r * 0.56, 0.035);
     face.add(gravure);
 
-    return { racine, pivot, volant, or, alarme, survol, angle: 0, anim: null, contenu: "fermee" };
+    return { racine, pivot, volant, or, alarme, survol, fond, angle: 0, anim: null, contenu: "fermee" };
   }
 
   /** Une pile de lingots d'or au fond de la niche. */
@@ -453,6 +458,9 @@ export class VaultScene {
 
   private remplir(p: Porte, c: Contenu): void {
     p.contenu = c;
+    // Une niche ouverte s'éclaire : or chaud derrière les lingots, rouge vif derrière l'alarme.
+    p.fond.material.emissive.set(c === "alarme" ? NEON.alarm : c === "or" ? NEON.yel : NEON.bg);
+    p.fond.material.emissiveIntensity = c === "alarme" ? 0.55 : c === "or" ? 0.18 : 0;
     p.or.visible = c === "or";
     p.alarme.visible = c === "alarme";
   }

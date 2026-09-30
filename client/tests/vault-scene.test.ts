@@ -94,7 +94,7 @@ describe("VaultScene", () => {
 
     b.ecouler(OUVERTURE_MS);
     const p2 = b.portes()[1];
-    expect(b.angle(p2)).toBeLessThan(-1.5);
+    expect(b.angle(p2)).toBeCloseTo(ANGLE_OUVERT, 6);
     expect(b.dans(p2, NOMS_COFFRE.or).visible).toBe(true);
     // Seule la porte choisie s'est ouverte.
     expect(b.angle(b.portes()[0])).toBe(0);
